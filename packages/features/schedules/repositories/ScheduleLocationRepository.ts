@@ -23,6 +23,132 @@ export class ScheduleLocationRepository {
     });
   }
 
+  static async createLocation({
+    scheduleId,
+    label,
+    shortCode,
+    type,
+    address,
+    credentialId,
+  }: {
+    scheduleId: number;
+    label: string;
+    shortCode: string;
+    type: string;
+    address: string | null;
+    credentialId: number | null;
+  }): Promise<ScheduleLocationRow> {
+    return prisma.scheduleLocation.create({
+      data: { scheduleId, label, shortCode, type, address, credentialId },
+      select: { id: true, label: true, shortCode: true, type: true, address: true, credentialId: true },
+    });
+  }
+
+  /**
+   * scheduleId sits in the where clause rather than behind a preceding ownership check, so a
+   * caller holding only a location id cannot reach a location on somebody else's schedule.
+   */
+  static async updateLocation({
+    id,
+    scheduleId,
+    data,
+  }: {
+    id: number;
+    scheduleId: number;
+    data: {
+      label?: string;
+      shortCode?: string;
+      type?: string;
+      address?: string | null;
+      credentialId?: number | null;
+    };
+  }): Promise<void> {
+    await prisma.scheduleLocation.updateMany({ where: { id, scheduleId }, data });
+  }
+
+  static async deleteLocation({ id, scheduleId }: { id: number; scheduleId: number }): Promise<void> {
+    await prisma.scheduleLocation.deleteMany({ where: { id, scheduleId } });
+  }
+
+  static async findLocationByShortCode({
+    scheduleId,
+    shortCode,
+  }: {
+    scheduleId: number;
+    shortCode: string;
+  }): Promise<{ id: number } | null> {
+    return prisma.scheduleLocation.findFirst({ where: { scheduleId, shortCode }, select: { id: true } });
+  }
+
+  /**
+   * One dated rule per date: clicking the same day again replaces the previous choice rather
+   * than stacking a second rule whose precedence would come down to insertion order.
+   */
+  static async upsertDateRule({
+    scheduleId,
+    scheduleLocationId,
+    date,
+  }: {
+    scheduleId: number;
+    scheduleLocationId: number;
+    date: Date;
+  }): Promise<void> {
+    await prisma.$transaction(async (tx) => {
+      await tx.scheduleLocationRule.deleteMany({ where: { scheduleId, date } });
+      await tx.scheduleLocationRule.create({
+        data: {
+          scheduleId,
+          scheduleLocationId,
+          date,
+          days: [],
+          startTime: null,
+          endTime: null,
+          locked: false,
+          position: 0,
+        },
+      });
+    });
+  }
+
+  static async deleteDateRule({ scheduleId, date }: { scheduleId: number; date: Date }): Promise<void> {
+    await prisma.scheduleLocationRule.deleteMany({ where: { scheduleId, date } });
+  }
+
+  /**
+   * `date: null` in the delete filter is what keeps the calendar's one-off assignments alive
+   * while the weekday baseline underneath them is rewritten.
+   */
+  static async replaceRecurringRules({
+    scheduleId,
+    rules,
+  }: {
+    scheduleId: number;
+    rules: {
+      scheduleLocationId: number;
+      days: number[];
+      startTime: Date | null;
+      endTime: Date | null;
+      locked: boolean;
+    }[];
+  }): Promise<void> {
+    await prisma.$transaction(async (tx) => {
+      await tx.scheduleLocationRule.deleteMany({ where: { scheduleId, date: null } });
+      if (rules.length === 0) return;
+      await tx.scheduleLocationRule.createMany({
+        data: rules.map((rule, index) => ({
+          scheduleId,
+          scheduleLocationId: rule.scheduleLocationId,
+          date: null,
+          days: rule.days,
+          startTime: rule.startTime,
+          endTime: rule.endTime,
+          locked: rule.locked,
+          position: index,
+        })),
+      });
+    });
+  }
+
   /**
    * Ordered by position because resolution is first-match-wins; an unordered read would
    * make the winning rule depend on whatever order Postgres happened to return.
