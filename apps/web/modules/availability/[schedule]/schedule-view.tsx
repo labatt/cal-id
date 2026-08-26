@@ -1,10 +1,5 @@
 "use client";
 
-import { revalidateAvailabilityList } from "app/(use-page-wrapper)/(main-nav)/availability/actions";
-import { revalidateSchedulePage } from "app/(use-page-wrapper)/availability/[schedule]/actions";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
-
 import { AvailabilitySettings } from "@calcom/atoms/availability/AvailabilitySettings";
 import type { BulkUpdatParams } from "@calcom/features/eventtypes/components/BulkEditDefaultForEventsModal";
 import { withErrorFromUnknown } from "@calcom/lib/getClientErrorFromUnknown";
@@ -14,6 +9,11 @@ import type { RouterOutputs } from "@calcom/trpc/react";
 import { trpc } from "@calcom/trpc/react";
 import useMeQuery from "@calcom/trpc/react/hooks/useMeQuery";
 import { showToast } from "@calcom/ui/components/toast";
+import { revalidateAvailabilityList } from "app/(use-page-wrapper)/(main-nav)/availability/actions";
+import { revalidateSchedulePage } from "app/(use-page-wrapper)/availability/[schedule]/actions";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { ScheduleLocationsCard } from "../components/ScheduleLocationsCard";
 
 type PageProps = {
   scheduleData: RouterOutputs["viewer"]["availability"]["schedule"]["get"];
@@ -106,40 +106,47 @@ export const AvailabilitySettingsWebWrapper = ({
   });
 
   return (
-    <AvailabilitySettings
-      schedule={schedule}
-      travelSchedules={isDefaultSchedule ? travelSchedules || [] : []}
-      isDeleting={deleteMutation.isPending}
-      isLoading={false}
-      isSaving={updateMutation.isPending}
-      enableOverrides={true}
-      timeFormat={timeFormat}
-      weekStart={me.data?.weekStart || "Sunday"}
-      backPath={fromEventType ? true : "/availability"}
-      handleDelete={() => {
-        scheduleId && deleteMutation.mutate({ scheduleId });
-      }}
-      handleSubmit={async ({ dateOverrides, ...values }) => {
-        if (!values.name.trim()) {
-          showToast(t("schedule_name_cannot_be_empty"), "error");
-          return;
-        }
-        scheduleId &&
-          updateMutation.mutate({
-            scheduleId,
-            dateOverrides: dateOverrides.flatMap((override) => override.ranges),
-            ...values,
-          });
-      }}
-      bulkUpdateModalProps={{
-        isOpen: isBulkUpdateModalOpen,
-        setIsOpen: setIsBulkUpdateModalOpen,
-        save: bulkUpdateFunction,
-        isSaving: bulkUpdateDefaultAvailabilityMutation.isPending,
-        eventTypes: eventTypesQueryData?.eventTypes,
-        isEventTypesFetching,
-        handleBulkEditDialogToggle: handleBulkEditDialogToggle,
-      }}
-    />
+    <>
+      <AvailabilitySettings
+        schedule={schedule}
+        travelSchedules={isDefaultSchedule ? travelSchedules || [] : []}
+        isDeleting={deleteMutation.isPending}
+        isLoading={false}
+        isSaving={updateMutation.isPending}
+        enableOverrides={true}
+        timeFormat={timeFormat}
+        weekStart={me.data?.weekStart || "Sunday"}
+        backPath={fromEventType ? true : "/availability"}
+        handleDelete={() => {
+          scheduleId && deleteMutation.mutate({ scheduleId });
+        }}
+        handleSubmit={async ({ dateOverrides, ...values }) => {
+          if (!values.name.trim()) {
+            showToast(t("schedule_name_cannot_be_empty"), "error");
+            return;
+          }
+          scheduleId &&
+            updateMutation.mutate({
+              scheduleId,
+              dateOverrides: dateOverrides.flatMap((override) => override.ranges),
+              ...values,
+            });
+        }}
+        bulkUpdateModalProps={{
+          isOpen: isBulkUpdateModalOpen,
+          setIsOpen: setIsBulkUpdateModalOpen,
+          save: bulkUpdateFunction,
+          isSaving: bulkUpdateDefaultAvailabilityMutation.isPending,
+          eventTypes: eventTypesQueryData?.eventTypes,
+          isEventTypesFetching,
+          handleBulkEditDialogToggle: handleBulkEditDialogToggle,
+        }}
+      />
+      {/* Rendered alongside AvailabilitySettings rather than inside it: that component lives in
+        packages/platform/atoms, which may not import tRPC, and this section is tRPC-driven.
+        Sitting directly under the availability editor also reads correctly — when you are
+        free, then where you are. */}
+      {scheduleId ? <ScheduleLocationsCard scheduleId={scheduleId} /> : null}
+    </>
   );
 };
