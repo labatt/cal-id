@@ -9,9 +9,10 @@ import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { markdownToSafeHTML } from "@calcom/lib/markdownToSafeHTML";
 import type { RouterOutputs } from "@calcom/trpc/react";
 import { FormBuilderField } from "@calcom/web/modules/form-builder/components/FormBuilderField";
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useFormContext } from "react-hook-form";
 import { z } from "zod";
+import { useScheduleLocation } from "./useScheduleLocation";
 
 type TouchedFields = {
   responses?: Record<string, boolean>;
@@ -42,6 +43,31 @@ export const BookingFields = ({
   const { t, i18n } = useLocale();
   const { watch, setValue, formState } = useFormContext();
   const locationResponse = watch("responses.location");
+  const scheduleLocation = useScheduleLocation();
+
+  /**
+   * The value has to be set, not merely defaulted by narrowing the options.
+   * hideWhenJustOneOption only marks the field hidden and never populates it, and an empty
+   * responses.location falls through to the organiser's default conferencing app — which can
+   * land on Cal Video. Filtering alone would silently book the wrong location.
+   */
+  useEffect(() => {
+    if (!scheduleLocation) return;
+    const current = watch("responses.location")?.value;
+    if (current === scheduleLocation.locationType) return;
+    // A locked rule always wins. An unlocked one is only a default, so it is applied when the
+    // booker has not chosen anything yet and left alone once they have.
+    if (scheduleLocation.locked || !current) {
+      setValue(
+        "responses.location",
+        { value: scheduleLocation.locationType, optionValue: "" },
+        {
+          shouldValidate: false,
+          shouldDirty: false,
+        }
+      );
+    }
+  }, [scheduleLocation, setValue, watch]);
   const currentView = rescheduleUid ? "reschedule" : "";
   // Identify all phone fields (except location field)
   const otherPhoneFieldNames = useMemo(
@@ -186,7 +212,12 @@ export const BookingFields = ({
           const optionsInputs = field.optionsInputs;
 
           // TODO: Instead of `getLocationOptionsForSelect` options should be retrieved from dataStore[field.getOptionsAt]. It would make it agnostic of the `name` of the field.
-          const options = getLocationOptionsForSelect(locations, t);
+          // A locked rule removes the choice entirely rather than pre-selecting it, so the
+          // booker is never shown an option the server would override on submit.
+          const offered = scheduleLocation?.locked
+            ? locations.filter((location) => location.type === scheduleLocation.locationType)
+            : locations;
+          const options = getLocationOptionsForSelect(offered.length ? offered : locations, t);
           options.forEach((option) => {
             const optionInput = optionsInputs[option.value as keyof typeof optionsInputs];
             if (optionInput) {

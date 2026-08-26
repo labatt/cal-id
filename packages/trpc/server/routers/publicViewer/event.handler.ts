@@ -1,5 +1,4 @@
 import { EventRepository } from "@calcom/features/eventtypes/repositories/EventRepository";
-
 import type { TEventInputSchema } from "./event.schema";
 
 interface EventHandlerOptions {

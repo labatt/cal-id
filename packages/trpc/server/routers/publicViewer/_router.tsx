@@ -3,6 +3,7 @@ import { router } from "../../trpc";
 import { ZUserEmailVerificationRequiredSchema } from "./checkIfUserEmailVerificationRequired.schema";
 import { ZMarkHostAsNoShowInputSchema } from "./markHostAsNoShow.schema";
 import { event } from "./procedures/event";
+import { ZScheduleLocationsInputSchema } from "./scheduleLocations.schema";
 import { ZSubmitRatingInputSchema } from "./submitRating.schema";
 
 // things that unauthenticated users can query about themselves
@@ -20,6 +21,10 @@ export const publicViewerRouter = router({
     return handler(opts);
   }),
   event,
+  scheduleLocations: publicProcedure.input(ZScheduleLocationsInputSchema).query(async (opts) => {
+    const { default: handler } = await import("./scheduleLocations.handler");
+    return handler(opts);
+  }),
 
   checkIfUserEmailVerificationRequired: publicProcedure
     .input(ZUserEmailVerificationRequiredSchema)
