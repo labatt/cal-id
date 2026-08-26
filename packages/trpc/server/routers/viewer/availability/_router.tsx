@@ -2,6 +2,7 @@ import authedProcedure from "../../../procedures/authedProcedure";
 import { router } from "../../../trpc";
 import { ZCalendarOverlayInputSchema } from "./calendarOverlay.schema";
 import { scheduleRouter } from "./schedule/_router";
+import { scheduleLocationsRouter } from "./scheduleLocations/_router";
 import { ZListTeamAvailaiblityScheme } from "./team/listTeamAvailability.schema";
 import { ZUserInputSchema } from "./user.schema";
 
@@ -38,6 +39,7 @@ export const availabilityRouter = router({
     });
   }),
   schedule: scheduleRouter,
+  scheduleLocations: scheduleLocationsRouter,
   calendarOverlay: authedProcedure.input(ZCalendarOverlayInputSchema).query(async ({ ctx, input }) => {
     const { calendarOverlayHandler } = await import("./calendarOverlay.handler");
 
