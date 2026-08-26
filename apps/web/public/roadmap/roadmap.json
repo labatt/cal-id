@@ -1,0 +1,112 @@
+{
+  "project": "meet.labattsimon.com — Cal-ID fork: booking-page redesign, calendar reconnect, and location-aware scheduling",
+  "updated": "2026-08-26",
+  "statusLegend": {
+    "working": "Being worked on right now",
+    "queued": "Accepted, not started yet",
+    "blocked": "Waiting on something external",
+    "future": "Idea for later, not committed",
+    "done": "Finished and verified"
+  },
+  "items": [
+    {
+      "id": 1,
+      "title": "Create the roadmap page",
+      "summary": "A build-status page at /roadmap backed by a single JSON file, so there is one honest record of what was asked for, what is in flight, and what actually happened.",
+      "affects": "apps/web/public/roadmap/roadmap.json, apps/web/public/roadmap/index.html",
+      "status": "done",
+      "notes": "Served from public/ as plain HTML rather than as a Next route, so editing the JSON needs no rebuild and the page survives the framework. Zero dependencies — no fetch library, no framework, no CDN. Single id space by construction: 'future' is a status, not a separate array, which is the collision this design exists to avoid."
+    },
+    {
+      "id": 2,
+      "title": "Reconnect a calendar whose OAuth grant was revoked",
+      "summary": "Adds a Reconnect action to the credential menu that re-runs OAuth and repairs the existing credential in place, instead of forcing remove-and-re-add.",
+      "affects": "packages/app-store/googlecalendar/api/callback.ts, packages/features/credentials/repositories/CredentialRepository.ts, apps/web/modules/apps/components/CredentialActionsDropdown.tsx",
+      "status": "done",
+      "notes": "The trigger was a real outage: Google Calendar stopped syncing and the UI said 'try reconnecting' while offering only 'Remove app'. Root cause was not the missing button — the OAuth consent screen was still in Testing, where Google expires refresh tokens after 7 days. Logs showed invalid_grant starting exactly 7 days after connecting. Keeping the credential id matters because DestinationCalendar, SelectedCalendar and event-type metadata all reference it. The credential id travels in OAuth state, which the client composes, so the write is scoped by userId and appId and raises P2025 rather than trusting it."
+    },
+    {
+      "id": 3,
+      "title": "Broadsheet theme for the month-view booking page",
+      "summary": "Restyles the public booking page as newsprint: display serif for headline and month, tight grotesk for numerals and controls, duration promoted to a full-width band.",
+      "affects": "apps/web/styles/broadsheet.css, apps/web/modules/bookings/components/EventMeta.tsx, apps/web/app/layout.tsx",
+      "status": "done",
+      "notes": "Duration moved out of the sidebar because it decides which slots exist, so it has to be read before a date is picked. The serif silently never rendered at first: layout.tsx stripped the quotes next/font emits, and 'Source Serif 4' unquoted is an invalid CSS family because 4 is not a valid identifier, so the whole declaration was dropped and the page fell back to Times. Inter Tight survived the same treatment only because it has no digits — which is exactly why it failed quietly. Took five debugging passes ending in CDP getMatchedStylesForNode to find."
+    },
+    {
+      "id": 4,
+      "title": "Make the DURATION label readable",
+      "summary": "The duration label inherited the generic kicker treatment and failed WCAG AA against the band it sits on.",
+      "affects": "apps/web/styles/broadsheet.css",
+      "status": "done",
+      "notes": "Measured ~4:1, below the 4.5 floor for small text. Deliberately not fixed by raising the shared --bs-ink-faint token: that token also greys out unavailable day numbers, where low contrast is carrying meaning, and brightening it globally would make disabled days read as bookable. Ended at 14.98:1 dark / 15.86:1 light."
+    },
+    {
+      "id": 5,
+      "title": "Schedule location rules — schema, resolution, API",
+      "summary": "Records where the organiser physically is on given dates, so a booking can resolve to the right location automatically.",
+      "affects": "packages/prisma/schema.prisma, packages/features/schedules/lib/resolveLocation.ts, packages/features/schedules/services/ScheduleLocationService.ts, packages/trpc/.../scheduleLocations/",
+      "status": "done",
+      "notes": "Two design reversals worth keeping. First: the rules were going on the event type until it became clear they describe a person's whereabouts, not one event type's policy — at event-type scope every new event type needs its own copy of a weekly-changing travel calendar. Second: ordering was dropped as YAGNI on a promise of disjoint day sets, then reinstated once time windows and catch-all rules made overlap unavoidable. Resolution is a pure function evaluated in the schedule's timezone: a Friday 10:00 slot in New York is already Saturday in Sydney. Two traps found: Prisma returns @db.Time pinned to 1970-01-01 UTC so the wall clock lives in the UTC accessors, and @db.Date compared after a zone conversion rolls back a day for anywhere west of Greenwich."
+    },
+    {
+      "id": 6,
+      "title": "Schedule location editor",
+      "summary": "Set a default location on each weekday row beside its hours, with a lock toggle, plus a month calendar for overriding specific dates.",
+      "affects": "apps/web/modules/availability/components/, packages/features/schedules/components/ScheduleComponent.tsx, packages/platform/atoms/availability/AvailabilitySettings.tsx",
+      "status": "done",
+      "notes": "Built backwards on the first attempt. 'Some weeks Mon/Tue/Wed, others Wed/Thu/Fri' was read as meaning no weekly pattern was worth a default, so only dated assignment was built and the recurring editor was deferred. It actually meant defaults plus freedom to depart from them — which is what the date/days split in the model was for. Second bug: the card was rendered as a sibling of AvailabilitySettings, which returns the whole page Shell, so it appeared underneath the left nav. Neither tsc nor the build catches that — it is valid React rendering in the wrong place. Fixed with a footerSlot, and the weekday control threaded as a slot matching the CopyButton element ScheduleDay already accepts."
+    },
+    {
+      "id": 7,
+      "title": "Maintenance page on server errors",
+      "summary": "A 5xx now renders a friendly maintenance page with an unwell-calendar mascot instead of an error name and a block of exception text.",
+      "affects": "apps/web/components/error/error-page.tsx, apps/web/components/error/PoorlyCalendar.tsx",
+      "status": "done",
+      "notes": "Gated to 5xx only: pages/_error shares this component and can pass a 404, which is not an outage and should not claim to be one. The mascot is inline SVG using currentColor, because this renders on the error path where whatever would serve an image may be the thing that just failed. Rendered it before shipping and caught two things that would have gone out blind: the eyes curved upward and read as happy, fighting the entire message, and the thermometer bulb overlapped a leg so it looked like the calendar was stabbing its own shin."
+    },
+    {
+      "id": 8,
+      "title": "Fork to labatt/cal-id and push",
+      "summary": "Fork the upstream repo, commit the outstanding work, and push 21 commits that existed only on the server's disk.",
+      "affects": "git remotes, .gitignore",
+      "status": "done",
+      "notes": "Caught a leak on the way out. logs/ was untracked but not gitignored and contained the owner's email address 179 times plus OAuth failures and calendar IDs — on a public fork that is world-readable and effectively permanent. Also ignored .next.known-good/, .superpowers/, .playwright-mcp/ and screenshots. Verified gh.env, ecosystem.config.js and seed-google-apps.ts carry no hardcoded secrets. Flagged before forking that a fork of a public repo is permanently public and cannot be converted; the owner chose public anyway."
+    },
+    {
+      "id": 9,
+      "title": "Document the fork and how to deploy it",
+      "summary": "README section describing every difference from upstream, plus a from-scratch deployment guide for a new server.",
+      "affects": "README.md",
+      "status": "done",
+      "notes": "The Google section already said 'click PUBLISH APP' but buried it at the end with no reason attached, so it read as optional — which is how the 7-day token expiry in item 2 happened. It now states the consequence, that publishing changes token lifetime rather than access control, and what 'unverified' actually costs. Deployment guide uses the versions this actually runs on rather than generic ones, and documents the $connection_upgrade nginx map and why build.sh exists instead of a bare yarn build."
+    },
+    {
+      "id": 10,
+      "title": "Event-type opt-in toggle for schedule locations",
+      "summary": "A control on the event type to turn on useScheduleLocations, plus a warning when a schedule location is missing from that event type's own locations.",
+      "affects": "apps/web/modules/event-types/",
+      "status": "queued",
+      "section": "Location-aware bookings",
+      "notes": "This is the gate on everything else in this section. The column exists and defaults to false, and there is currently no way to set it, so a finished resolution path would still change nothing. Was inside the phase-2 scope and did not get built."
+    },
+    {
+      "id": 11,
+      "title": "Resolve location in the booking flow",
+      "summary": "Make the booker use the resolved location: set it as the default or lock it outright, and enforce that server-side.",
+      "affects": "apps/web/modules/bookings/components/BookEventForm/BookingFields.tsx, packages/features/bookings/lib/handleNewBooking/",
+      "status": "queued",
+      "section": "Location-aware bookings",
+      "notes": "The rule must set the value, not merely filter the options. hideWhenJustOneOption only marks the field hidden and never populates it, and an empty responses.location falls through to the default conferencing app — which can end at Cal Video. Filtering alone would silently book the wrong location. Server-side enforcement is required separately: the endpoint accepts whatever is posted, so a crafted request could book in person on a locked day."
+    },
+    {
+      "id": 12,
+      "title": "Location markers on the booking page",
+      "summary": "Show which days are which location before a booker commits to a slot — short code on the day cell, per-slot codes on mixed days, and a legend.",
+      "affects": "apps/web/modules/bookings/components/, apps/web/styles/broadsheet.css",
+      "status": "queued",
+      "section": "Location-aware bookings",
+      "notes": "Design settled by mockup. Marking only the exception rather than every day: it drops a month from 15 marks to 3, and changes the encoding from hue to presence, which survives greyscale and colour blindness. The first version used two coloured dots, which spent the page's second accent a dozen times a month when the whole point of that accent is that it appears once — and left colour as the only signal."
+    }
+  ]
+}

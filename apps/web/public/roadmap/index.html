@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Build status</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f6f6f4;
+        --sheet: #fff;
+        --ink: #17171a;
+        --muted: #6b6b73;
+        --rule: #e2e2df;
+        --accent: #0b6e8c;
+        --working: #b45309;
+        --queued: #4b5563;
+        --blocked: #b91c1c;
+        --future: #6d28d9;
+        --done: #15803d;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0d0d0f;
+          --sheet: #151517;
+          --ink: #ececea;
+          --muted: #9a9aa2;
+          --rule: #2a2a2f;
+          --accent: #5fd8ff;
+          --working: #fbbf24;
+          --queued: #9ca3af;
+          --blocked: #f87171;
+          --future: #c4b5fd;
+          --done: #4ade80;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 32px 20px 80px;
+        background: var(--bg);
+        color: var(--ink);
+        font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      main { max-width: 1120px; margin: 0 auto; }
+      h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.01em; }
+      .sub { color: var(--muted); font-size: 14px; margin: 0 0 26px; }
+      h2 {
+        font-size: 15px; text-transform: uppercase; letter-spacing: 0.08em;
+        margin: 34px 0 4px; display: flex; align-items: baseline; gap: 10px;
+      }
+      h2 .count { color: var(--muted); font-size: 12px; letter-spacing: 0; text-transform: none; }
+      h2 .legend { color: var(--muted); font-size: 12px; letter-spacing: 0; text-transform: none; font-weight: 400; }
+      .section-head { border-top: 2px solid var(--rule); margin-top: 46px; padding-top: 22px; }
+      .section-note { color: var(--muted); font-size: 13px; margin: 0 0 10px; max-width: 70ch; }
+      table { width: 100%; border-collapse: collapse; background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; }
+      th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; font-size: 14px; }
+      tr:last-child td { border-bottom: 0; }
+      th {
+        font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em;
+        color: var(--muted); cursor: pointer; user-select: none; white-space: nowrap;
+        background: color-mix(in srgb, var(--sheet) 82%, var(--bg));
+      }
+      th:hover { color: var(--ink); }
+      th .arrow { opacity: 0.45; font-size: 10px; }
+      td.id { color: var(--muted); font-variant-numeric: tabular-nums; width: 44px; }
+      td.title { font-weight: 600; width: 21%; }
+      td.affects { color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; width: 17%; word-break: break-word; }
+      td.notes { color: var(--muted); font-size: 13px; }
+      .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid currentColor; }
+      .s-working { color: var(--working); } .s-queued { color: var(--queued); }
+      .s-blocked { color: var(--blocked); } .s-future { color: var(--future); }
+      .s-done { color: var(--done); }
+      .empty { color: var(--muted); font-size: 13px; padding: 14px 2px; }
+      footer { margin-top: 46px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--rule); padding-top: 14px; }
+      @media (max-width: 780px) {
+        td.affects, th.affects { display: none; }
+        td.title { width: auto; }
+      }
+    </style>
+  </head>
+  <body>
+    <main id="app"><p class="sub">Loading…</p></main>
+
+    <script>
+      // Table order is fixed: what needs attention first, finished last.
+      var STATUS_ORDER = ["working", "queued", "blocked", "future", "done"];
+      var HEADING = {
+        working: "Being worked on",
+        queued: "Queued",
+        blocked: "Blocked",
+        future: "Future",
+        done: "Finished",
+      };
+      var COLUMNS = [
+        { key: "id", label: "#", cls: "id" },
+        { key: "title", label: "Title", cls: "title" },
+        { key: "summary", label: "Summary", cls: "summary" },
+        { key: "affects", label: "Affects", cls: "affects" },
+        { key: "status", label: "Status", cls: "status" },
+        { key: "notes", label: "Notes", cls: "notes" },
+      ];
+
+      // Per-table sort overrides, keyed by table id. Clicking a header sets one; the
+      // defaults below apply only until then.
+      var sortState = {};
+
+      function defaultCompare(status) {
+        // Finished only grows, and the most recent entry is what anyone is looking for.
+        // Everything else reads oldest-first so a queue reads as a queue.
+        var dir = status === "done" ? -1 : 1;
+        return function (a, b) {
+          return (a.id - b.id) * dir;
+        };
+      }
+
+      function compareBy(key, dir) {
+        return function (a, b) {
+          var x = a[key], y = b[key];
+          if (key === "id") return (x - y) * dir;
+          x = (x == null ? "" : String(x)).toLowerCase();
+          y = (y == null ? "" : String(y)).toLowerCase();
+          if (x < y) return -1 * dir;
+          if (x > y) return 1 * dir;
+          return 0;
+        };
+      }
+
+      function el(tag, attrs, text) {
+        var n = document.createElement(tag);
+        if (attrs) for (var k in attrs) n.setAttribute(k, attrs[k]);
+        if (text != null) n.textContent = text;
+        return n;
+      }
+
+      function buildTable(tableId, rows, status) {
+        var state = sortState[tableId];
+        var sorted = rows.slice();
+        sorted.sort(state ? compareBy(state.key, state.dir) : defaultCompare(status));
+
+        var table = el("table");
+        var thead = el("thead");
+        var hr = el("tr");
+        COLUMNS.forEach(function (col) {
+          var th = el("th", { class: col.cls, scope: "col" });
+          th.appendChild(document.createTextNode(col.label));
+          if (state && state.key === col.key) {
+            th.appendChild(el("span", { class: "arrow" }, state.dir === 1 ? " ▲" : " ▼"));
+          }
+          th.addEventListener("click", function () {
+            var cur = sortState[tableId];
+            // Same column again flips direction; a new column starts ascending.
+            sortState[tableId] =
+              cur && cur.key === col.key ? { key: col.key, dir: cur.dir * -1 } : { key: col.key, dir: 1 };
+            render();
+          });
+          hr.appendChild(th);
+        });
+        thead.appendChild(hr);
+        table.appendChild(thead);
+
+        var tbody = el("tbody");
+        sorted.forEach(function (item) {
+          var tr = el("tr");
+          COLUMNS.forEach(function (col) {
+            var td = el("td", { class: col.cls });
+            if (col.key === "status") {
+              td.appendChild(el("span", { class: "pill s-" + item.status }, item.status));
+            } else {
+              td.textContent = item[col.key] == null ? "" : String(item[col.key]);
+            }
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        return table;
+      }
+
+      var data = null;
+
+      function render() {
+        var app = document.getElementById("app");
+        app.textContent = "";
+
+        app.appendChild(el("h1", null, data.project));
+        app.appendChild(el("p", { class: "sub" }, "Updated " + data.updated));
+
+        // A single id space: "future" is a status, never a second list with its own
+        // numbering. Two entries sharing an id is the bug this shape prevents.
+        var items = data.items || [];
+        var sectioned = items.filter(function (i) { return i.section; });
+        var plain = items.filter(function (i) { return !i.section; });
+
+        STATUS_ORDER.forEach(function (status) {
+          var rows = plain.filter(function (i) { return i.status === status; });
+          if (!rows.length) return;
+          var h = el("h2", null, HEADING[status]);
+          h.appendChild(el("span", { class: "count" }, String(rows.length)));
+          if (data.statusLegend && data.statusLegend[status]) {
+            h.appendChild(el("span", { class: "legend" }, "— " + data.statusLegend[status]));
+          }
+          app.appendChild(h);
+          app.appendChild(buildTable("status:" + status, rows, status));
+        });
+
+        // Sections come after the status tables. A body of work in flight earns its own
+        // table with mixed statuses, because "how far along is this" beats "what is queued
+        // across the whole project" — but only while it is live. Dropping the section field
+        // when it lands returns its items to the tables above on their own.
+        var names = [];
+        sectioned.forEach(function (i) {
+          if (names.indexOf(i.section) === -1) names.push(i.section);
+        });
+        names.forEach(function (name) {
+          var rows = sectioned.filter(function (i) { return i.section === name; });
+          var h = el("h2", { class: "section-head" }, name);
+          h.appendChild(el("span", { class: "count" }, rows.length + " items"));
+          app.appendChild(h);
+          app.appendChild(
+            el("p", { class: "section-note" }, "A body of work in flight. Mixed statuses, shown together so progress is legible.")
+          );
+          // Within a section, order by the same status precedence, then oldest-first.
+          rows = rows.slice().sort(function (a, b) {
+            var d = STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status);
+            return d !== 0 ? d : a.id - b.id;
+          });
+          app.appendChild(buildTable("section:" + name, rows, null));
+        });
+
+        var f = el("footer", null, items.length + " items. Edited by hand in roadmap.json — no database, no admin UI.");
+        app.appendChild(f);
+      }
+
+      var req = new XMLHttpRequest();
+      req.open("GET", "roadmap.json?v=" + Date.now(), true);
+      req.onreadystatechange = function () {
+        if (req.readyState !== 4) return;
+        if (req.status >= 200 && req.status < 300) {
+          try {
+            data = JSON.parse(req.responseText);
+            render();
+          } catch (e) {
+            document.getElementById("app").textContent = "roadmap.json is not valid JSON: " + e.message;
+          }
+        } else {
+          document.getElementById("app").textContent = "Could not load roadmap.json (HTTP " + req.status + ")";
+        }
+      };
+      req.send();
+    </script>
+  </body>
+</html>

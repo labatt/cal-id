@@ -327,6 +327,13 @@ const nextConfig = (phase: string): NextConfig => {
 
       const afterFiles = [
         {
+          // The roadmap is plain static files under public/, so editing it needs no rebuild.
+          // Next does not map a directory to its index.html, hence this rewrite for the bare
+          // path. afterFiles, so it never shadows a real route.
+          source: "/roadmap",
+          destination: "/roadmap/index.html",
+        },
+        {
           source: "/routing/:path*",
           destination: "/apps/routing-forms/:path*",
         },
