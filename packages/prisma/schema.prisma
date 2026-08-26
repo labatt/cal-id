@@ -328,6 +328,7 @@ model Credential {
   billingCycleStart Int?
 
   destinationCalendars      DestinationCalendar[]
+  scheduleLocations         ScheduleLocation[]
   selectedCalendars         SelectedCalendar[]
   invalid                   Boolean?                   @default(false)
   CalendarCache             CalendarCache[]
@@ -992,6 +993,10 @@ model ScheduleLocation {
   shortCode    String
   type         String
   address      String?
+  /// SetNull rather than Cascade: losing a Zoom credential must not delete the travel
+  /// calendar that referenced it. Nulling the field lets matchScheduleLocation fall back
+  /// to the event type's first entry of the same type instead of matching a dead id.
+  credential   Credential?            @relation(fields: [credentialId], references: [id], onDelete: SetNull)
   credentialId Int?
   rules        ScheduleLocationRule[]
 
