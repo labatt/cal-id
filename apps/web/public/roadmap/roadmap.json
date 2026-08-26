@@ -95,9 +95,9 @@
       "title": "Resolve location in the booking flow",
       "summary": "Make the booker use the resolved location: set it as the default or lock it outright, and enforce that server-side.",
       "affects": "apps/web/modules/bookings/components/BookEventForm/BookingFields.tsx, packages/features/bookings/lib/handleNewBooking/",
-      "status": "queued",
+      "status": "working",
       "section": "Location-aware bookings",
-      "notes": "The rule must set the value, not merely filter the options. hideWhenJustOneOption only marks the field hidden and never populates it, and an empty responses.location falls through to the default conferencing app — which can end at Cal Video. Filtering alone would silently book the wrong location. Server-side enforcement is required separately: the endpoint accepts whatever is posted, so a crafted request could book in person on a locked day."
+      "notes": "The rule must set the value, not merely filter the options. hideWhenJustOneOption only marks the field hidden and never populates it, and an empty responses.location falls through to the default conferencing app — which can end at Cal Video. Filtering alone would silently book the wrong location. Server-side enforcement is required separately: the endpoint accepts whatever is posted, so a crafted request could book in person on a locked day. FOUND WHILE STARTING: the event type on this instance has scheduleId NULL and runs off the owner's defaultScheduleId (1). getPublicEvent selects the schedule relation directly, so that relation is null here and naive plumbing would resolve no rules at all — code that looks correct and silently does nothing in the one configuration that actually exists. Resolution has to use the effective schedule, eventType.scheduleId ?? owner.defaultScheduleId, everywhere, including the server-side check."
     },
     {
       "id": 12,

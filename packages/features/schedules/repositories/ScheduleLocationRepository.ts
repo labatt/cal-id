@@ -1,4 +1,5 @@
 import { prisma } from "@calcom/prisma";
+import type { Prisma } from "@calcom/prisma/client";
 import type { ScheduleLocationLike } from "../lib/matchScheduleLocation";
 import type { LocationRule } from "../lib/resolveLocation";
 
@@ -21,6 +22,47 @@ export class ScheduleLocationRepository {
         credentialId: true,
       },
     });
+  }
+
+  /**
+   * The raw facts needed to resolve a booking's location, in one read.
+   *
+   * scheduleId is returned alongside the owner's defaultScheduleId rather than resolved here:
+   * choosing between them is a rule, not data access, and it has to be applied identically by
+   * the booker and the booking endpoint.
+   */
+  static async findEventTypeScheduleContext({ eventTypeId }: { eventTypeId: number }): Promise<{
+    useScheduleLocations: boolean;
+    locations: Prisma.JsonValue;
+    scheduleId: number | null;
+    ownerDefaultScheduleId: number | null;
+    ownerTimeZone: string | null;
+  } | null> {
+    const eventType = await prisma.eventType.findUnique({
+      where: { id: eventTypeId },
+      select: {
+        useScheduleLocations: true,
+        locations: true,
+        scheduleId: true,
+        owner: { select: { defaultScheduleId: true, timeZone: true } },
+      },
+    });
+    if (!eventType) return null;
+    return {
+      useScheduleLocations: eventType.useScheduleLocations,
+      locations: eventType.locations,
+      scheduleId: eventType.scheduleId,
+      ownerDefaultScheduleId: eventType.owner?.defaultScheduleId ?? null,
+      ownerTimeZone: eventType.owner?.timeZone ?? null,
+    };
+  }
+
+  static async findScheduleTimeZone({ scheduleId }: { scheduleId: number }): Promise<string | null> {
+    const schedule = await prisma.schedule.findUnique({
+      where: { id: scheduleId },
+      select: { timeZone: true },
+    });
+    return schedule?.timeZone ?? null;
   }
 
   static async createLocation({
