@@ -1,5 +1,7 @@
 "use client";
 
+import type { EventTypeLocationLike } from "@calcom/features/schedules/lib/matchScheduleLocation";
+import { matchScheduleLocation } from "@calcom/features/schedules/lib/matchScheduleLocation";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { trpc } from "@calcom/trpc/react";
 import { Badge } from "@calcom/ui/components/badge";
@@ -71,6 +73,17 @@ export const ScheduleLocationsCard = ({ scheduleId }: { scheduleId: number }) =>
     onError: (error) => showToast(error.message, "error"),
   });
 
+  // Cursor-paginated, so it must be an infinite query like every other call site. One page
+  // is enough: the warning only needs to know whether any opted-in event type offers each
+  // location, not to enumerate them all.
+  const { data: eventTypesData } = trpc.viewer.eventTypes.getEventTypesFromGroup.useInfiniteQuery(
+    { limit: 50, group: { teamId: undefined, parentId: undefined } },
+    {
+      staleTime: 60_000,
+      getNextPageParam: (lastPage: { nextCursor: number | null | undefined }) => lastPage.nextCursor,
+    }
+  );
+
   const locations = useMemo(() => data?.locations ?? [], [data]);
   const rules = useMemo(() => data?.rules ?? [], [data]);
 
@@ -117,6 +130,34 @@ export const ScheduleLocationsCard = ({ scheduleId }: { scheduleId: number }) =>
     return byDate;
   }, [rules, locationsById, viewYear, viewMonth]);
 
+  /**
+   * A location only takes effect if an event type that opted in also offers it. Without this
+   * the rules look correct and quietly resolve to nothing — which is exactly what happened
+   * here: a location typed inPerson that meant Zoom, and an address left empty, both of which
+   * matched no event type and so did nothing at all.
+   */
+  const unusableLocations = useMemo(() => {
+    const allEventTypes = (eventTypesData?.pages ?? []).flatMap((page) => page.eventTypes ?? []);
+    const optedIn = allEventTypes.filter(
+      (eventType) => "useScheduleLocations" in eventType && eventType.useScheduleLocations
+    );
+    if (optedIn.length === 0 || locations.length === 0) return [];
+    return locations.filter((location) => {
+      return !optedIn.some((eventType) => {
+        const offered = Array.isArray(eventType.locations) ? eventType.locations : [];
+        return !!matchScheduleLocation(
+          {
+            id: location.id,
+            type: location.type,
+            address: location.address,
+            credentialId: location.credentialId,
+          },
+          offered as EventTypeLocationLike[]
+        );
+      });
+    });
+  }, [locations, eventTypesData]);
+
   const handleDayClick = (dateKey: string) => {
     if (activeLocationId === null) {
       showToast(t("pick_a_location_first"), "warning");
@@ -153,6 +194,19 @@ export const ScheduleLocationsCard = ({ scheduleId }: { scheduleId: number }) =>
 
         {locations.length === 0 && !isPending ? (
           <p className="text-subtle text-sm">{t("no_locations_yet")}</p>
+        ) : null}
+
+        {unusableLocations.length > 0 ? (
+          <div
+            className="border-subtle bg-subtle mb-3 rounded-md border p-3"
+            data-testid="unusable-locations-warning">
+            <p className="text-emphasis text-sm font-medium">{t("locations_not_offered_title")}</p>
+            <p className="text-subtle mt-1 text-sm">
+              {t("locations_not_offered_description", {
+                labels: unusableLocations.map((l) => l.label).join(", "),
+              })}
+            </p>
+          </div>
         ) : null}
 
         <ul className="stack-y-2">
@@ -227,14 +281,19 @@ export const ScheduleLocationsCard = ({ scheduleId }: { scheduleId: number }) =>
             <div className="mt-3 flex gap-2">
               <Button
                 type="button"
-                disabled={createLocation.isPending}
+                disabled={
+                  createLocation.isPending ||
+                  !draft.label.trim() ||
+                  !draft.shortCode.trim() ||
+                  (draft.type === "inPerson" && !draft.address.trim())
+                }
                 onClick={() =>
                   createLocation.mutate({
                     scheduleId,
                     label: draft.label,
                     shortCode: draft.shortCode,
                     type: draft.type,
-                    address: draft.type === "inPerson" ? draft.address : null,
+                    address: draft.type === "inPerson" ? draft.address.trim() || null : null,
                   })
                 }>
                 {t("save")}

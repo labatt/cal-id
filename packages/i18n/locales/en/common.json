@@ -1229,6 +1229,8 @@
   "location_overrides_description": "Click a day to override its default location for that date only.",
   "use_schedule_locations": "Use my location calendar",
   "use_schedule_locations_description": "Set the meeting location from where you are on the booked date, using the locations on this schedule. Leave off to let bookers choose from this event type's own locations.",
+  "locations_not_offered_title": "Some locations won't be used",
+  "locations_not_offered_description": "{{labels}} — no event type using this schedule offers a matching location, so rules pointing at them will do nothing. Add the same location to the event type, or check its type and address match.",
   "where_youll_be": "Where you'll be",
   "where_youll_be_description": "Set a default location for each weekday beside its hours above, then override individual dates below.",
   "your_locations": "Your locations",

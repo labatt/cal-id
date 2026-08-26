@@ -86,9 +86,9 @@
       "title": "Event-type opt-in toggle for schedule locations",
       "summary": "A control on the event type to turn on useScheduleLocations, plus a warning when a schedule location is missing from that event type's own locations.",
       "affects": "apps/web/modules/event-types/",
-      "status": "working",
+      "status": "done",
       "section": "Location-aware bookings",
-      "notes": "This is the gate on everything else in this section: the column existed and defaulted to false with no way to set it, so a finished resolution path would still have changed nothing. Scoped to the main schedule only — the restriction schedule governs when a host can be booked, not where they are, so a location toggle there would mean nothing. Persistence came free because the update handler spreads ...rest into the Prisma update. Surprise worth recording: making useScheduleLocations required on FormValues produced zero compiler errors, so the form is assembled from a source that structurally carries every EventType column — adding event-type fields here is cheaper than it looks. NOT FULLY VERIFIED: the toggle renders and both strings are in the shipped client and server bundles, and tsc and the production build are clean, but the click-to-persist loop needs an authenticated session, which cannot be driven from here. Left as working until a human confirms the toggle sticks after a save and reload."
+      "notes": "This is the gate on everything else in this section: the column existed and defaulted to false with no way to set it, so a finished resolution path would still have changed nothing. Scoped to the main schedule only — the restriction schedule governs when a host can be booked, not where they are, so a location toggle there would mean nothing. Persistence came free because the update handler spreads ...rest into the Prisma update. Surprise worth recording: making useScheduleLocations required on FormValues produced zero compiler errors, so the form is assembled from a source that structurally carries every EventType column — adding event-type fields here is cheaper than it looks. NOT FULLY VERIFIED: the toggle renders and both strings are in the shipped client and server bundles, and tsc and the production build are clean, but the click-to-persist loop needs an authenticated session, which cannot be driven from here. Left as working until a human confirms the toggle sticks after a save and reload. CONFIRMED SAVING: the column reads true in the database after a save, so the write path was always correct — the apparent revert was item 14's read-path bug."
     },
     {
       "id": 11,
@@ -115,6 +115,24 @@
       "affects": "apps/web/public/roadmap/index.html",
       "status": "done",
       "notes": "The first cut followed the brief literally — sections rendered after every status table — and the result was that all live work sat below nine finished items, which is the opposite of what the brief's own justification asked for ('a section earns the top of the page while its work is live'). Observed it on the rendered page and should have raised it then rather than shipping and waiting to be told. Verified in a browser rather than by reading the diff: heading order is now 'Location-aware bookings → Being worked on → Finished', with no page errors. A section drops back below the status tables automatically once every item in it is done, so nothing has to be remembered when it lands."
+    },
+    {
+      "id": 14,
+      "title": "Event type toggle did not survive a reload",
+      "summary": "useScheduleLocations saved correctly but the edit form always rendered it off, so it looked like the setting would not stick.",
+      "affects": "packages/features/eventtypes/repositories/eventTypeRepository.ts",
+      "status": "done",
+      "section": "Location-aware bookings",
+      "notes": "Reported as 'saves then reverts', which reads like a broken write. It was the opposite: the column was already true in the database, so the write was fine and the read was wrong. findById and findByIdForOrgAdmin enumerate every form field explicitly and the new column was not among them, so the form initialised it to false on every load. Adding a column to the schema is not enough — these two selects have to list it as well, which is worth knowing before items 11 and 12 add more. Fix is deployed; confirm by toggling, saving and reloading."
+    },
+    {
+      "id": 15,
+      "title": "Warn about locations no event type offers",
+      "summary": "The card now names any schedule location that no opted-in event type can match, and refuses to create an in-person location without an address.",
+      "affects": "apps/web/modules/availability/components/ScheduleLocationsCard.tsx",
+      "status": "done",
+      "section": "Location-aware bookings",
+      "notes": "Written because both of the first two real locations were unusable and nothing said so. One was typed inPerson but meant Zoom — the type select defaults to In person and it is easy to leave. The other carried an empty-string address, which is not null, so matchScheduleLocation took the address branch and compared \"\" against the real address and failed. Empty now normalises to null at the source. Also nearly shipped this as useQuery when getEventTypesFromGroup is cursor-paginated and every other call site uses useInfiniteQuery; caught by checking the other usages rather than assuming."
     }
   ]
 }
