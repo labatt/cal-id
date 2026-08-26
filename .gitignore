@@ -117,3 +117,12 @@ agents/devin-knowledge.json
 
 # pagefind
 _pagefind/
+
+# Local operational artefacts — never publish these.
+# logs/ in particular carries booking errors with real email addresses in them.
+logs/
+*.log
+apps/web/.next.known-good/
+.superpowers/
+.playwright-mcp/
+broadsheet-*.png
