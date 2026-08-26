@@ -1,5 +1,6 @@
 import type { LocationObject } from "@calcom/app-store/locations";
 import { DefaultEventLocationTypeEnum, getOrganizerInputLocationTypes } from "@calcom/app-store/locations";
+import { useBookerStoreContext } from "@calcom/features/bookings/Booker/BookerStoreProvider";
 import type { GetBookingType } from "@calcom/features/bookings/lib/get-booking";
 import getLocationOptionsForSelect from "@calcom/features/bookings/lib/getLocationOptionsForSelect";
 import { fieldsThatSupportLabelAsSafeHtml } from "@calcom/features/form-builder/fieldsThatSupportLabelAsSafeHtml";
@@ -44,6 +45,7 @@ export const BookingFields = ({
   const { watch, setValue, formState } = useFormContext();
   const locationResponse = watch("responses.location");
   const scheduleLocation = useScheduleLocation();
+  const selectedTimeslot = useBookerStoreContext((state) => state.selectedTimeslot);
 
   /**
    * The value has to be set, not merely defaulted by narrowing the options.
@@ -51,23 +53,28 @@ export const BookingFields = ({
    * responses.location falls through to the organiser's default conferencing app — which can
    * land on Cal Video. Filtering alone would silently book the wrong location.
    */
+  const appliedForSlotRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (!scheduleLocation) return;
+    if (!scheduleLocation || !selectedTimeslot) return;
+
+    // Keyed on the slot rather than on "has the booker chosen yet". The form pre-selects the
+    // first configured location, which is indistinguishable from a deliberate choice, so an
+    // "only if empty" guard never fired and an unlocked day silently kept the pre-filled one.
+    // Applying once per slot means choosing a different day re-applies that day's location,
+    // while a change the booker makes afterwards survives until they move to another slot.
+    if (appliedForSlotRef.current === selectedTimeslot && !scheduleLocation.locked) return;
+
     const current = watch("responses.location")?.value;
-    if (current === scheduleLocation.locationType) return;
-    // A locked rule always wins. An unlocked one is only a default, so it is applied when the
-    // booker has not chosen anything yet and left alone once they have.
-    if (scheduleLocation.locked || !current) {
+    if (current !== scheduleLocation.locationType) {
       setValue(
         "responses.location",
         { value: scheduleLocation.locationType, optionValue: "" },
-        {
-          shouldValidate: false,
-          shouldDirty: false,
-        }
+        { shouldValidate: false, shouldDirty: false }
       );
     }
-  }, [scheduleLocation, setValue, watch]);
+    appliedForSlotRef.current = selectedTimeslot;
+  }, [scheduleLocation, selectedTimeslot, setValue, watch]);
   const currentView = rescheduleUid ? "reschedule" : "";
   // Identify all phone fields (except location field)
   const otherPhoneFieldNames = useMemo(
@@ -201,7 +208,10 @@ export const BookingFields = ({
         }
 
         if (field.name === SystemField.Enum.location) {
-          readOnly = false;
+          // A locked schedule rule makes this unchangeable rather than absent. Narrowing the
+          // options to one instead trips hideWhenJustOneOption — the schema hides the field at
+          // one option or fewer — which left the booker with no location shown at all.
+          readOnly = !!scheduleLocation?.locked;
         }
 
         // Dynamically populate location field options
@@ -212,12 +222,7 @@ export const BookingFields = ({
           const optionsInputs = field.optionsInputs;
 
           // TODO: Instead of `getLocationOptionsForSelect` options should be retrieved from dataStore[field.getOptionsAt]. It would make it agnostic of the `name` of the field.
-          // A locked rule removes the choice entirely rather than pre-selecting it, so the
-          // booker is never shown an option the server would override on submit.
-          const offered = scheduleLocation?.locked
-            ? locations.filter((location) => location.type === scheduleLocation.locationType)
-            : locations;
-          const options = getLocationOptionsForSelect(offered.length ? offered : locations, t);
+          const options = getLocationOptionsForSelect(locations, t);
           options.forEach((option) => {
             const optionInput = optionsInputs[option.value as keyof typeof optionsInputs];
             if (optionInput) {
