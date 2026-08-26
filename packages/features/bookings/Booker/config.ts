@@ -71,28 +71,37 @@ export const resizeAnimationConfig: ResizeAnimationConfig = {
       gridTemplateRows: "minmax(min-content,max-content) 1fr",
     },
   },
+  // BROADSHEET: month_view is a full-bleed sheet, not a meta sidebar + calendar.
+  // `meta` is promoted to a full-width head band (standing head + lead) stacked
+  // ABOVE the calendar, so it spans every column instead of occupying column 1.
+  // Both states must declare the same head row or the sheet visibly jumps when
+  // the grid gains its timeslots column on date selection.
   month_view: {
     default: {
-      width: "calc(var(--booker-meta-width) + var(--booker-main-width))",
+      width: "var(--booker-sheet-width)",
       minHeight: "450px",
       height: "auto",
+      // Single column before a date is picked: the head band and the calendar
+      // each span the whole sheet. The column COUNT here must match the number
+      // of names per row in gridTemplateAreas, or the areas spill into an
+      // implicit auto-width track and the head band stops spanning.
       gridTemplateAreas: `
-      "meta main main"
-      "meta main main"
+      "meta"
+      "main"
       `,
-      gridTemplateColumns: "var(--booker-meta-width) var(--booker-main-width)",
-      gridTemplateRows: "1fr 0fr",
+      gridTemplateColumns: "1fr",
+      gridTemplateRows: "min-content 1fr",
     },
     selecting_time: {
-      width: "calc(var(--booker-meta-width) + var(--booker-main-width) + var(--booker-timeslots-width))",
+      width: "var(--booker-sheet-width)",
       minHeight: "450px",
       height: "auto",
       gridTemplateAreas: `
-      "meta main timeslots"
-      "meta main timeslots"
+      "meta meta"
+      "main timeslots"
       `,
-      gridTemplateColumns: "var(--booker-meta-width) 1fr var(--booker-timeslots-width)",
-      gridTemplateRows: "1fr 0fr",
+      gridTemplateColumns: "1fr var(--booker-timeslots-width)",
+      gridTemplateRows: "min-content 1fr",
     },
   },
   week_view: {
@@ -137,19 +146,28 @@ export const getBookerSizeClassNames = (
 
   return [
     // Size settings are abstracted on their own lines purely for readability.
-    // General sizes, used always
+    // General sizes, used always.
+    // BROADSHEET: month_view widens the timeslot rail to 300px and sets the
+    // overall sheet width; --booker-meta-width is left alone because week_view
+    // and column_view still use it for their real meta sidebar.
     "[--booker-timeslots-width:240px] lg:[--booker-timeslots-width:280px]",
+    layout === BookerLayouts.MONTH_VIEW &&
+      "[--booker-timeslots-width:300px] lg:[--booker-timeslots-width:300px] [--booker-sheet-width:100%] xl:[--booker-sheet-width:1180px]",
     // Small calendar defaults
-    layout === BookerLayouts.MONTH_VIEW && getBookerMetaClass("[--booker-meta-width:240px]"),
+    // BROADSHEET: the head band spans the sheet, so meta is full width in
+    // month_view. week_view/column_view keep their real 240-424px sidebar.
+    layout === BookerLayouts.MONTH_VIEW && getBookerMetaClass("[--booker-meta-width:100%]"),
     // Meta column gets wider in booking view to fit the full date on a single row in case
     // of a multi occurrence event. Also makes form less wide, which also looks better.
     layout === BookerLayouts.MONTH_VIEW &&
       bookerState === "booking" &&
-      `[--booker-main-width:420px] ${getBookerMetaClass("lg:[--booker-meta-width:340px]")}`,
+      `[--booker-main-width:420px] ${getBookerMetaClass("lg:[--booker-meta-width:100%]")}`,
     // Smaller meta when not in booking view.
+    // BROADSHEET: the calendar column is fluid in month_view (it is the `1fr`
+    // track), so the fixed 480px would pin the whole sheet narrow.
     layout === BookerLayouts.MONTH_VIEW &&
       bookerState !== "booking" &&
-      `[--booker-main-width:480px] ${getBookerMetaClass("lg:[--booker-meta-width:280px]")}`,
+      `[--booker-main-width:100%] ${getBookerMetaClass("lg:[--booker-meta-width:100%]")}`,
     // Fullscreen view settings.
     layout !== BookerLayouts.MONTH_VIEW &&
       `[--booker-main-width:480px] [--booker-meta-width:340px] ${getBookerMetaClass(

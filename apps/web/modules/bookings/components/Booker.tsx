@@ -40,6 +40,7 @@ import { shallow } from "zustand/shallow";
 import { useIsQuickAvailabilityCheckFeatureEnabled } from "../hooks/useIsQuickAvailabilityCheckFeatureEnabled";
 import type { WrappedBookerProps } from "../types";
 import { AvailableTimeSlots } from "./AvailableTimeSlots";
+import { BroadsheetMetaRows } from "./BroadsheetMetaRows";
 import { BookEventForm } from "./BookEventForm";
 import { BookFormAsModal } from "./BookEventForm/BookFormAsModal";
 import { DatePicker } from "./DatePicker";
@@ -349,6 +350,9 @@ const BookerComponent = ({
           data-testid="booker-container"
           className={classNames(
             ...getBookerSizeClassNames(layout, bookerState, hideEventTypeDetails),
+            // BROADSHEET: `bs-booker` scopes the newsprint treatment to the
+            // booking surface only, so the dashboard keeps stock Cal styling.
+            layout === BookerLayouts.MONTH_VIEW && "bs-booker",
             `bg-default dark:bg-cal-muted grid max-w-full items-start dark:scheme-dark sm:transition-[width] sm:duration-300 sm:motion-reduce:transition-none md:flex-row`,
             // We remove border only when the content covers entire viewport. Because in embed, it can almost never be the case that it covers entire viewport, we show the border there
             (layout === BookerLayouts.MONTH_VIEW || isEmbed) && "border-subtle rounded-md",
@@ -361,7 +365,7 @@ const BookerComponent = ({
             <BookerSection
               area="header"
               className={classNames(
-                layout === BookerLayouts.MONTH_VIEW && "fixed top-4 z-10 ltr:right-4 rtl:left-4",
+                layout === BookerLayouts.MONTH_VIEW && "bs-header fixed top-4 z-10 ltr:right-4 rtl:left-4",
                 (layout === BookerLayouts.COLUMN_VIEW || layout === BookerLayouts.WEEK_VIEW) &&
                   "bg-default dark:bg-cal-muted sticky top-0 z-10"
               )}>
@@ -395,10 +399,20 @@ const BookerComponent = ({
                 />
               )}
             </BookerSection>
-            <StickyOnDesktop key="meta" className={classNames("relative z-10 flex [grid-area:meta]")}>
+            <StickyOnDesktop
+              key="meta"
+              className={classNames(
+                "relative z-10 flex [grid-area:meta]",
+                // BROADSHEET: unpin the sticky meta sidebar so the head band can
+                // span the sheet instead of floating over the calendar.
+                layout === BookerLayouts.MONTH_VIEW && "bs-head-wrap"
+              )}>
               <BookerSection
                 area="meta"
-                className="max-w-screen flex w-full flex-col md:w-(--booker-meta-width)">
+                className={classNames(
+                  "max-w-screen flex w-full flex-col md:w-(--booker-meta-width)",
+                  layout === BookerLayouts.MONTH_VIEW && "bs-head-section"
+                )}>
                 {!hideEventTypeDetails && orgBannerUrl && (
                   <img
                     loading="eager"
@@ -476,6 +490,10 @@ const BookerComponent = ({
                 scrollToTimeSlots={scrollToTimeSlots}
                 showNoAvailabilityDialog={showNoAvailabilityDialog}
               />
+              {/* BROADSHEET: duration / where / timezone sit under the calendar.
+                  They cannot live in EventMeta any more because that component is
+                  now the full-width head band above the calendar. */}
+              {!hideEventTypeDetails && <BroadsheetMetaRows event={event.data} />}
             </BookerSection>
 
             <BookerSection

@@ -1,0 +1,1033 @@
+/* ============================================================================
+   BROADSHEET — booking page treatment
+   "Standing head, dark ink": newsprint layout, near-black ground, cyan as the
+   only interactive colour, magenta used exactly once.
+
+   Type is a PAIR, split by role — a display serif for the editorial voice
+   (headline, month, lead line) against a tight grotesk for chrome (kickers,
+   numerals, controls). See section 1; section 12 carries the modern pass.
+
+   This file is intentionally NOT tracked upstream. Everything that can live in
+   CSS lives here so that `git pull` only ever conflicts in config.ts and
+   EventMeta.tsx. Scoped to [data-testid="event-meta"] / the booker shell so it
+   cannot leak into the dashboard.
+   ========================================================================= */
+
+:root {
+  /* Ink + ground -------------------------------------------------------- */
+  --bs-ground: #edebe8;
+  --bs-sheet: #fbfaf9;
+  /* `raised` is a real third surface, not a tint. The length band and the
+     timeslot rail sit on it so they read as controls rather than as more sheet. */
+  --bs-raised: #f2efec;
+  --bs-ink: #16151a;
+  --bs-ink-soft: #4e4a52;
+  --bs-ink-faint: #7a757f;
+  --bs-rule: #ddd8d2;
+  --bs-rule-strong: #16151a;
+
+  /* Cyan = interactive, and ONLY interactive. ------------------------- */
+  --bs-accent: #0b7d9e;
+  --bs-accent-hi: #0a94bd;
+  --bs-accent-tint: rgb(11 125 158 / 12%);
+  --bs-accent-ring: rgb(11 125 158 / 22%);
+  --bs-accent-on: #ffffff;
+
+  /* Magenta = exactly one element per screen: the lead band. ----------- */
+  --bs-lead-plate: #fdecf3;
+  --bs-lead-ink: #a3204f;
+  --bs-lead-kicker: #c4507f;
+
+  /* Type scale ---------------------------------------------------------- */
+  --bs-h1: 72px;
+  --bs-lead: 21px;
+  --bs-h2: 30px;
+  --bs-body: 15px;
+  --bs-kicker: 11px;
+  /* Radius is a deliberate dial: 2px read as brutalist newsprint, which is the
+     opposite of contemporary. 9px softens the controls without turning the
+     hairline rules and banded head — the actual newsprint DNA — into a card UI. */
+  --bs-radius: 9px;
+  --bs-radius-sm: 7px;
+  --bs-radius-lg: 14px;
+  --bs-ease: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+:root:not([data-theme="light"]) {
+  color-scheme: dark;
+}
+
+.dark,
+[data-theme="dark"] {
+  --bs-ground: #0b0b0d;
+  --bs-sheet: #141416;
+  --bs-raised: #1c1c20;
+  --bs-ink: #f2f0f2;
+  --bs-ink-soft: #b5b1ba;
+  /* Unavailable days must stay legible on the dark ground, not near-invisible. */
+  --bs-ink-faint: #7f7a86;
+  --bs-rule: #2b2b31;
+  --bs-rule-strong: #f2f0f2;
+
+  /* The mid cyan does not clear contrast on a near-black ground, so the dark
+     theme steps UP to a brighter electric cyan and puts dark ink on top of it. */
+  --bs-accent: #5fd8ff;
+  --bs-accent-hi: #8ce6ff;
+  --bs-accent-tint: rgb(95 216 255 / 14%);
+  --bs-accent-ring: rgb(95 216 255 / 24%);
+  --bs-accent-on: #04141c;
+
+  --bs-lead-plate: #2d0f1d;
+  --bs-lead-ink: #ffb3d0;
+  --bs-lead-kicker: #e0679b;
+}
+
+/* ---------------------------------------------------------------------------
+   1. Two families, split by ROLE, not by element.
+   The serif is the display voice: headline, month name, lead line — the things
+   you read as editorial. The grotesk is the chrome voice: kickers, numerals,
+   buttons, controls — the things you operate. Setting chrome in the display
+   serif (the original single-family rule) is what made the page read dated;
+   numerals and buttons in a text serif look like body copy, not like UI.
+   ------------------------------------------------------------------------ */
+.bs-booker,
+.bs-booker button,
+.bs-booker input,
+.bs-booker select,
+.bs-booker textarea {
+  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "cv05" 1, "ss01" 1;
+}
+
+/* Display voice — explicit opt-in, never inherited. */
+.bs-booker .bs-title,
+.bs-booker .bs-title-band h1,
+.bs-booker .bs-lead-line,
+.bs-booker .bs-lead-line p,
+.bs-booker [data-testid="selected-month-label"],
+.bs-booker .bs-month-title,
+.bs-booker .bs-details-body {
+  font-family: var(--font-serif), Georgia, serif;
+}
+
+.bs-booker {
+  background: var(--bs-sheet);
+  color: var(--bs-ink);
+  font-size: var(--bs-body);
+}
+
+/* One radius everywhere — overrides Tailwind's rounded-* on the booker only.
+   `rounded-full` is excluded: it is only ever used for genuinely circular things
+   (the avatar, the toggle knob), which a uniform corner radius would square off. */
+.bs-booker [class*="rounded"]:not([class*="rounded-full"]) {
+  border-radius: var(--bs-radius) !important;
+}
+
+/* Focus: cyan ring, never the default blue. */
+.bs-booker *:focus-visible {
+  outline: 2px solid var(--bs-accent) !important;
+  outline-offset: 2px !important;
+  box-shadow: none !important;
+}
+
+/* ---------------------------------------------------------------------------
+   2. The head band — rows 1-3 of the sheet.
+   EventMeta occupies the full-width `meta` grid area (see config.ts) and lays
+   its own children out as: byline row / title band / lead band.
+   ------------------------------------------------------------------------ */
+.bs-booker .bs-head {
+  padding: 0 !important;
+  width: 100%;
+}
+
+/* Row 1 — byline. The layout switcher is position:fixed by Booker.tsx in
+   month_view, so we reserve space on the right rather than fighting it. */
+.bs-booker .bs-byline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 40px;
+  min-height: 64px;
+  padding-right: 420px;
+}
+
+.bs-booker .bs-byline [data-testid="event-meta-avatar"] ,
+.bs-booker .bs-byline .bs-avatar {
+  flex: none;
+}
+
+.bs-booker .bs-byline-name {
+  font-size: 19px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--bs-ink);
+  white-space: nowrap;
+}
+
+/* Row 2 — the standing head. 4px rule above, 1px below. */
+.bs-booker .bs-title-band {
+  border-top: 4px solid var(--bs-rule-strong);
+  border-bottom: 1px solid var(--bs-rule);
+  padding: 34px 40px 40px;
+}
+
+.bs-booker .bs-title-band h1 ,
+.bs-booker .bs-title-band .bs-title {
+  font-size: var(--bs-h1);
+  line-height: 0.98;
+  font-weight: 700;
+  letter-spacing: -0.028em;
+  color: var(--bs-ink);
+  margin: 0;
+}
+
+/* Row 3 — the lead band. The ONLY magenta on the page. */
+.bs-booker .bs-lead-band {
+  display: flex;
+  align-items: baseline;
+  gap: 26px;
+  background: var(--bs-lead-plate);
+  border-bottom: 1px solid var(--bs-rule);
+  padding: 16px 40px;
+}
+
+.bs-booker .bs-lead-kicker {
+  flex: none;
+  font-size: var(--bs-kicker);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--bs-lead-kicker);
+  font-weight: 600;
+}
+
+/* The authored one-liner. Never wraps — it ellipsises instead, which is why the
+   lead is a separate short field rather than truncated prose. */
+.bs-booker .bs-lead-line {
+  font-size: var(--bs-lead);
+  font-style: italic;
+  line-height: 1.3;
+  color: var(--bs-lead-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.bs-booker .bs-lead-line p {
+  margin: 0;
+  display: inline;
+}
+
+/* ---------------------------------------------------------------------------
+   3. Meta rows — under the calendar, inside the `main` area.
+   ------------------------------------------------------------------------ */
+.bs-booker .bs-metarows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 40px;
+  align-items: flex-start;
+  border-top: 1px solid var(--bs-rule);
+  margin: 28px 0 4px;
+  padding-top: 20px;
+}
+
+.bs-booker .bs-metarow-label {
+  display: block;
+  font-size: var(--bs-kicker);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--bs-ink-faint);
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.bs-booker .bs-metarow-value {
+  font-size: 16px;
+  color: var(--bs-ink);
+  line-height: 1.3;
+}
+
+/* Durations: one bordered segmented control sharing a single border, not three
+   loose buttons. Each option refuses to wrap so "1h 30m" stays on one line. */
+.bs-booker .bs-metarows .bs-duration ul ,
+.bs-booker .bs-duration ul {
+  border: 1px solid var(--bs-rule) !important;
+  border-radius: var(--bs-radius) !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  background: transparent !important;
+  overflow: visible !important;
+  display: inline-flex !important;
+  width: max-content;
+}
+
+.bs-booker .bs-duration ul li {
+  border-radius: 0 !important;
+  padding: 7px 16px !important;
+  white-space: nowrap !important;
+  font-size: 15px !important;
+  color: var(--bs-ink-soft) !important;
+  background: transparent !important;
+  border-right: 1px solid var(--bs-rule);
+}
+
+.bs-booker .bs-duration ul li:last-child {
+  border-right: 0;
+}
+
+.bs-booker .bs-duration ul li[data-active="true"] {
+  background: var(--bs-accent) !important;
+  color: var(--bs-accent-on) !important;
+  font-weight: 600;
+}
+
+.bs-booker .bs-duration > div {
+  border: 0 !important;
+  margin-right: 0 !important;
+}
+
+/* ---------------------------------------------------------------------------
+   4. Calendar — cyan tint for open days, legible grey for unavailable.
+   ------------------------------------------------------------------------ */
+.bs-booker [data-testid="day"] {
+  border-radius: var(--bs-radius) !important;
+  font-size: 16px;
+}
+
+/* Open (bookable) days: 13% cyan tint. */
+.bs-booker [data-testid="day"][data-disabled="false"] {
+  background: var(--bs-accent-tint) !important;
+  color: var(--bs-ink) !important;
+  font-weight: 600;
+}
+
+.bs-booker [data-testid="day"][data-disabled="false"]:hover {
+  background: color-mix(in srgb, var(--bs-accent) 26%, transparent) !important;
+}
+
+/* Selected day: solid cyan plate. */
+.bs-booker [data-testid="day"][data-selected="true"],
+.bs-booker [data-testid="day"][aria-selected="true"] {
+  background: var(--bs-accent) !important;
+  color: var(--bs-accent-on) !important;
+  font-weight: 700;
+}
+
+/* Unavailable days stay readable rather than fading out. */
+.bs-booker [data-testid="day"][data-disabled="true"] {
+  color: var(--bs-ink-faint) !important;
+  background: transparent !important;
+  opacity: 1 !important;
+}
+
+/* Weekday headers as small caps kickers. */
+.bs-booker .bs-weekday,
+.bs-booker [data-testid="weekday"] {
+  font-size: var(--bs-kicker);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--bs-ink-faint);
+}
+
+/* Month title: "August" in ink, year in faint — set as a section head. */
+.bs-booker .bs-month-title {
+  font-size: var(--bs-h2);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* ---------------------------------------------------------------------------
+   5. Timeslot rail.
+   ------------------------------------------------------------------------ */
+.bs-booker [data-testid="time"] {
+  border: 1px solid var(--bs-rule) !important;
+  border-radius: var(--bs-radius) !important;
+  font-size: 16px;
+  font-weight: 600;
+  justify-content: flex-start;
+  background: transparent !important;
+  color: var(--bs-ink) !important;
+}
+
+.bs-booker [data-testid="time"]:hover {
+  border-color: var(--bs-accent) !important;
+  background: var(--bs-accent-tint) !important;
+}
+
+/* Primary action: the one solid cyan plate in the rail. */
+.bs-booker button[type="submit"],
+.bs-booker [data-testid="confirm-book-button"] {
+  background: var(--bs-accent) !important;
+  color: var(--bs-accent-on) !important;
+  border: 0 !important;
+  border-radius: var(--bs-radius) !important;
+  font-size: 16px;
+  font-weight: 600;
+  padding-block: 12px;
+}
+
+/* ---------------------------------------------------------------------------
+   6. Long-form detail, demoted to a disclosure below the calendar.
+   ------------------------------------------------------------------------ */
+.bs-booker .bs-details {
+  margin-top: 22px;
+  border-top: 1px solid var(--bs-rule);
+  padding-top: 14px;
+}
+
+.bs-booker .bs-details > summary {
+  cursor: pointer;
+  font-size: var(--bs-kicker);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--bs-ink-faint);
+  font-weight: 600;
+  list-style: none;
+}
+
+.bs-booker .bs-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.bs-booker .bs-details > summary::after {
+  content: " +";
+}
+
+.bs-details[open] > summary::after {
+  content: " –";
+}
+
+.bs-booker .bs-details-body {
+  margin-top: 12px;
+  font-size: var(--bs-body);
+  line-height: 1.55;
+  color: var(--bs-ink-soft);
+  max-width: 62ch;
+}
+
+.bs-booker .bs-details-body a {
+  color: var(--bs-accent);
+  text-underline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------------
+   7. Narrow screens — the head band collapses to a single readable column and
+   the no-wrap lead is allowed to wrap, because ellipsising it on a phone would
+   hide the whole sentence.
+   ------------------------------------------------------------------------ */
+@media (max-width: 900px) {
+  :root {
+    --bs-h1: 38px;
+    --bs-lead: 18px;
+  }
+
+  .bs-booker .bs-byline {
+    padding: 14px 20px;
+    padding-right: 20px;
+  }
+
+  .bs-booker .bs-title-band {
+    padding: 22px 20px 24px;
+  }
+
+  .bs-booker .bs-lead-band {
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px 20px;
+  }
+
+  .bs-booker .bs-lead-line {
+    white-space: normal;
+    overflow: visible;
+  }
+
+  .bs-booker .bs-metarows {
+    gap: 24px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   8. Structural overrides for month_view.
+   Stock Cal-ID renders the meta area as a 240px sticky sidebar. The broadsheet
+   promotes it to a full-width head band, so the sticky wrapper and the fixed
+   meta width both have to be neutralised. These classes are applied in
+   Booker.tsx only when layout === month_view.
+   ------------------------------------------------------------------------ */
+.bs-booker {
+  position: relative;
+  width: var(--booker-sheet-width, 100%);
+  max-width: 100%;
+  margin-inline: auto;
+}
+
+/* StickyBox wrapper: unpin it and let it span the sheet. */
+.bs-booker .bs-head-wrap {
+  position: static !important;
+  width: 100% !important;
+  max-width: none !important;
+  display: block !important;
+  transform: none !important;
+}
+
+/* The meta BookerSection carries md:w-(--booker-meta-width); override it. */
+.bs-booker .bs-head-section {
+  width: 100% !important;
+  max-width: none !important;
+}
+
+/* The layout switcher / overlay toggle is position:fixed in stock month_view,
+   which pins it to the viewport rather than the sheet. Anchor it to the sheet
+   so it sits on the byline row as designed. */
+.bs-booker .bs-header {
+  position: absolute !important;
+  top: 14px !important;
+  right: 28px !important;
+  left: auto !important;
+  z-index: 20;
+}
+
+/* The calendar column is the fluid track; drop the stock fixed width. */
+.bs-booker [class*="--booker-main-width"],
+.bs-booker .bs-main-fluid {
+  width: 100% !important;
+}
+
+/* Give the calendar and timeslot columns broadsheet gutters. */
+.bs-booker [data-testid="booker-container"] {
+  overflow: visible;
+}
+
+/* ---------------------------------------------------------------------------
+   8. Sheet-level corrections (added after visual review)
+   ------------------------------------------------------------------------ */
+
+/* The layout switcher is `fixed top-4 right-4` in month_view, which pins it to
+   the VIEWPORT rather than the sheet — on a wide screen it drifts far from the
+   byline it belongs to. Re-anchor it inside the sheet. */
+.bs-booker {
+  position: relative;
+}
+
+.bs-booker > .fixed {
+  position: absolute !important;
+  top: 20px !important;
+  right: 28px !important;
+}
+
+/* Belt-and-braces: the meta BookerSection is width-capped by
+   `md:w-(--booker-meta-width)`. config.ts sets that variable to 100% for
+   month_view, but pin it here too so the head band can never be re-narrowed by
+   an upstream change to those utility classes. */
+.bs-booker > *:has(.bs-head),
+.bs-booker .bs-head {
+  width: 100% !important;
+  max-width: none !important;
+}
+
+/* The byline is a single line: avatar, then name. Without this the flex child
+   wraps the surname onto its own line in narrow columns. */
+.bs-byline > * {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.bs-byline p,
+.bs-byline span,
+.bs-byline div {
+  white-space: nowrap;
+  font-size: 19px;
+  line-height: 1.2;
+}
+
+.bs-byline img,
+.bs-byline [class*="avatar"] {
+  width: 34px !important;
+  height: 34px !important;
+  flex: none;
+}
+
+/* Keep the three meta rows on one line; only wrap when genuinely out of room. */
+.bs-metarows {
+  flex-wrap: nowrap;
+}
+
+@media (max-width: 1100px) {
+  .bs-metarows {
+    flex-wrap: wrap;
+  }
+}
+
+/* The calendar and meta rows share the sheet's 40px gutter. */
+.bs-booker [data-testid="datepicker"],
+.bs-booker .bs-metarows {
+  padding-inline: 40px;
+}
+
+@media (max-width: 900px) {
+  .bs-booker [data-testid="datepicker"],
+  .bs-booker .bs-metarows {
+    padding-inline: 20px;
+  }
+
+  .bs-booker > .fixed {
+    position: static !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   9. Month grid proportions + selection (second visual pass)
+   ------------------------------------------------------------------------ */
+
+/* Stock DatePicker wraps every day in `div.relative.w-full.pt-[100%]` — a
+   padding-top aspect-ratio trick that forces a perfect SQUARE. Across a
+   full-width sheet that makes each cell ~116px tall and the month table
+   enormous. The broadsheet month table is landscape, so replace the spacer
+   with a fixed row height. */
+.bs-booker [class*="pt-[100%]"] {
+  padding-top: 0 !important;
+  height: 54px;
+}
+
+@media (min-width: 1280px) {
+  .bs-booker [class*="pt-[100%]"] {
+    height: 58px;
+  }
+}
+
+/* The selected day is marked with `bg-brand-default text-brand` by stock Cal.
+   Brand colour is unset on this instance, so pin it to the interactive cyan. */
+.bs-booker button[class~="bg-brand-default"] {
+  background: var(--bs-accent) !important;
+  color: var(--bs-accent-on) !important;
+  font-weight: 700 !important;
+}
+
+/* The "today" dot sits inside the day button; invert it on the cyan plate so it
+   stays visible. */
+.bs-booker button[class~="bg-brand-default"] [class~="bg-brand-default"],
+.bs-booker button[class~="bg-brand-default"] [class~="bg-brand-accent"] {
+  background: var(--bs-accent-on) !important;
+}
+
+/* Weekday header row: kicker treatment, tightened up now that rows are short. */
+.bs-booker [class*="grid-cols-7"] > div {
+  min-width: 0;
+}
+
+/* Month title — "August" in ink, the year lighter, as a section head. */
+.bs-booker [data-testid="month"],
+.bs-booker .bs-month-title {
+  font-size: var(--bs-h2) !important;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* ---------------------------------------------------------------------------
+   9. Calendar corrections, derived from the real DOM.
+   Cal-ID marks day state with utility CLASSES, not data attributes:
+     selected    -> .bg-brand-default
+     available   -> .bg-emphasis
+     unavailable -> neither, plus data-disabled="true"
+   Note the selected day can ALSO carry data-disabled="true" (it is "today"),
+   so the unavailable rule must exclude both stateful classes or it wins and
+   blanks the selection.
+   ------------------------------------------------------------------------ */
+
+/* Each cell sits in a `relative w-full pt-[100%]` box — a padding-top square
+   trick. On a full-bleed sheet that makes 116px-tall cells, so we replace the
+   aspect ratio with a fixed row height. */
+.bs-booker div:has(> [data-testid="day"]) {
+  padding-top: 0 !important;
+  height: 52px;
+}
+
+/* Available days: 13% cyan tint. */
+.bs-booker [data-testid="day"].bg-emphasis {
+  background: var(--bs-accent-tint) !important;
+  color: var(--bs-ink) !important;
+  font-weight: 600;
+  border-color: transparent !important;
+}
+
+.bs-booker [data-testid="day"].bg-emphasis:hover {
+  background: color-mix(in srgb, var(--bs-accent) 26%, transparent) !important;
+  border-color: var(--bs-accent) !important;
+}
+
+/* Unavailable days stay legible; must not out-specify the selected day. */
+.bs-booker [data-testid="day"][data-disabled="true"]:not(.bg-brand-default):not(.bg-emphasis) {
+  color: var(--bs-ink-faint) !important;
+  background: transparent !important;
+  opacity: 1 !important;
+}
+
+/* Selected day: the solid cyan plate. Last so it beats the rules above. */
+.bs-booker [data-testid="day"].bg-brand-default {
+  background: var(--bs-accent) !important;
+  color: var(--bs-accent-on) !important;
+  font-weight: 700;
+  border-color: transparent !important;
+}
+
+/* Month title as a section head: "August" in ink, year faint. */
+.bs-booker [data-testid="selected-month-label"] {
+  font-size: var(--bs-h2) !important;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--bs-ink);
+}
+
+/* ---------------------------------------------------------------------------
+   10. Byline sizing. EventMembers renders <ul><li><a><span data-testid=avatar>,
+   so the avatar's w-6/h-6 must be overridden explicitly rather than inherited.
+   ------------------------------------------------------------------------ */
+.bs-booker .bs-byline {
+  font-size: 19px;
+}
+
+.bs-booker .bs-byline [data-testid="avatar"] {
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  min-height: 34px !important;
+}
+
+.bs-booker .bs-byline ul {
+  gap: 12px;
+  align-items: center;
+}
+
+/* ---------------------------------------------------------------------------
+   11. Broadsheet gutters for the calendar column. The section is identified by
+   the meta rows it now contains.
+   ------------------------------------------------------------------------ */
+.bs-booker div:has(> [data-testid="broadsheet-meta-rows"]) {
+  padding: 26px 40px 34px !important;
+  border-left: 0 !important;
+}
+
+/* ===========================================================================
+   12. MODERN PASS
+   Three things change here, in priority order:
+     a. The length band — duration promoted from a footnote to a page control.
+     b. Type — display serif vs. chrome grotesk, tabular numerals, tighter head.
+     c. Depth + motion — a real raised surface, hover states that move.
+   Appended last so it wins over the equal-specificity rules above without
+   having to rewrite them; a `git pull` conflict stays confined to sections 1-11.
+   ========================================================================= */
+
+/* --- a. The length band -------------------------------------------------- */
+
+/* Sits between the lead band and the calendar and spans the whole sheet, so it
+   is unavoidable on the path from headline to date. Raised surface + the heavy
+   bottom rule make it read as the page's control strip. */
+.bs-booker .bs-length-band {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 18px 40px;
+  background: var(--bs-raised);
+  border-bottom: 1px solid var(--bs-rule);
+}
+
+.bs-booker .bs-length-kicker {
+  flex: none;
+  font-size: var(--bs-kicker);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--bs-ink-faint);
+}
+
+.bs-booker .bs-length-control {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* EventDuration's own wrapper is a bordered flex row with a right margin and
+   absolutely-positioned scroll arrows. None of that applies once the options are
+   an equal-width grid that always fits, so it is flattened to a bare block. */
+.bs-booker .bs-length-control > div {
+  border: 0 !important;
+  margin: 0 !important;
+  display: block !important;
+  position: static !important;
+}
+
+/* The scroll arrows only exist because the stock control is a 240px sidebar
+   row. At full sheet width every option fits, so they would be dead chrome. */
+.bs-booker .bs-length-control > div > button {
+  display: none !important;
+}
+
+/* Equal-width segments: each option gets the same target regardless of whether
+   its label is "45m" or "1h 30m", so no option looks like the default. */
+.bs-booker .bs-length-control ul {
+  display: grid !important;
+  grid-auto-flow: column !important;
+  grid-auto-columns: 1fr !important;
+  gap: 8px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  width: 100% !important;
+  max-width: 620px;
+  overflow: visible !important;
+}
+
+.bs-booker .bs-length-control ul li {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 13px 12px !important;
+  border: 1.5px solid var(--bs-rule) !important;
+  border-radius: var(--bs-radius) !important;
+  background: var(--bs-sheet) !important;
+  color: var(--bs-ink) !important;
+  font-size: 17px !important;
+  font-weight: 600 !important;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  line-height: 1.1 !important;
+  white-space: nowrap !important;
+  transition:
+    border-color 0.18s var(--bs-ease),
+    background 0.18s var(--bs-ease),
+    color 0.18s var(--bs-ease),
+    transform 0.18s var(--bs-ease);
+}
+
+/* `div.w-max` inside each option would shrink-wrap and defeat the grid. */
+.bs-booker .bs-length-control ul li > div {
+  width: 100% !important;
+  max-width: none !important;
+  text-align: center;
+}
+
+.bs-booker .bs-length-control ul li:hover {
+  border-color: var(--bs-accent) !important;
+  background: var(--bs-accent-tint) !important;
+  transform: translateY(-1px);
+}
+
+.bs-booker .bs-length-control ul li[data-active="true"] {
+  background: var(--bs-accent) !important;
+  border-color: var(--bs-accent) !important;
+  color: var(--bs-accent-on) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 0 0 4px var(--bs-accent-ring);
+  transform: none;
+}
+
+@media (max-width: 900px) {
+  .bs-booker .bs-length-band {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 16px 20px;
+  }
+
+  .bs-booker .bs-length-control ul {
+    max-width: none;
+    gap: 6px !important;
+  }
+
+  .bs-booker .bs-length-control ul li {
+    font-size: 15px !important;
+    padding: 11px 6px !important;
+  }
+}
+
+/* --- b. Type ------------------------------------------------------------- */
+
+/* Tighter and heavier. At 72px the serif needs real negative tracking or the
+   counters read loose against the 4px rule above it. */
+.bs-booker .bs-title-band h1,
+.bs-booker .bs-title-band .bs-title {
+  font-size: var(--bs-h1);
+  line-height: 0.94;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+}
+
+.bs-booker .bs-title-band {
+  padding: 38px 40px 42px;
+}
+
+/* Every numeral on the page is tabular, so the calendar columns and the time
+   list align optically instead of jittering per glyph width. */
+.bs-booker [data-testid="day"],
+.bs-booker [data-testid="time"],
+.bs-booker .bs-length-control li,
+.bs-booker [data-testid="selected-month-label"] {
+  font-variant-numeric: tabular-nums;
+}
+
+.bs-booker .bs-byline-name,
+.bs-byline p,
+.bs-byline span,
+.bs-byline div {
+  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+}
+
+.bs-booker [data-testid="selected-month-label"],
+.bs-booker .bs-month-title {
+  font-size: var(--bs-h2) !important;
+  letter-spacing: -0.03em;
+}
+
+/* Kickers: grotesk, wider tracking, one size up from the old 10.5px so they
+   survive the extra letter-spacing at small sizes. */
+.bs-booker .bs-metarow-label,
+.bs-booker .bs-lead-kicker,
+.bs-booker .bs-length-kicker,
+.bs-booker .bs-details > summary,
+.bs-booker .bs-weekday,
+.bs-booker [data-testid="weekday"] {
+  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+  font-size: var(--bs-kicker);
+  letter-spacing: 0.15em;
+  font-weight: 600;
+}
+
+/* --- c. Depth + motion --------------------------------------------------- */
+
+/* Day cells: a real grid with hairlines and a hover that lifts. The stock cells
+   were flat plates with no edge, which is why the month table read as a block
+   of colour rather than as a calendar. */
+.bs-booker [data-testid="day"] {
+  border-radius: var(--bs-radius-sm) !important;
+  font-size: 15px;
+  font-weight: 500;
+  transition:
+    background 0.16s var(--bs-ease),
+    border-color 0.16s var(--bs-ease),
+    transform 0.16s var(--bs-ease);
+}
+
+.bs-booker [data-testid="day"].bg-emphasis {
+  border: 1px solid color-mix(in srgb, var(--bs-accent) 26%, transparent) !important;
+  font-weight: 600;
+}
+
+.bs-booker [data-testid="day"].bg-emphasis:hover {
+  background: color-mix(in srgb, var(--bs-accent) 24%, transparent) !important;
+  border-color: var(--bs-accent) !important;
+  transform: translateY(-1px);
+}
+
+/* The selected day carries the accent ring so it reads as chosen from across
+   the sheet, matching the active duration segment. */
+.bs-booker [data-testid="day"].bg-brand-default,
+.bs-booker button[class~="bg-brand-default"] {
+  box-shadow: 0 0 0 4px var(--bs-accent-ring);
+  border-color: var(--bs-accent) !important;
+}
+
+/* Timeslot rail: left-aligned time on the raised surface, with the accent
+   arriving as a left edge on hover rather than a full fill — the fill is
+   reserved for the one primary action at the bottom. */
+.bs-booker [data-testid="time"] {
+  background: var(--bs-raised) !important;
+  border: 1px solid var(--bs-rule) !important;
+  border-radius: var(--bs-radius) !important;
+  border-left: 3px solid transparent !important;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  padding-left: 16px !important;
+  transition:
+    border-color 0.16s var(--bs-ease),
+    background 0.16s var(--bs-ease),
+    transform 0.16s var(--bs-ease);
+}
+
+.bs-booker [data-testid="time"]:hover {
+  border-color: var(--bs-rule) !important;
+  border-left-color: var(--bs-accent) !important;
+  background: var(--bs-accent-tint) !important;
+  transform: translateX(2px);
+}
+
+.bs-booker button[type="submit"],
+.bs-booker [data-testid="confirm-book-button"] {
+  border-radius: var(--bs-radius) !important;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  transition: background 0.16s var(--bs-ease);
+}
+
+.bs-booker button[type="submit"]:hover,
+.bs-booker [data-testid="confirm-book-button"]:hover {
+  background: var(--bs-accent-hi) !important;
+}
+
+/* The lead band's rule is the seam between it and the length band; the length
+   band already draws its own bottom rule, so drop the doubled hairline. */
+.bs-booker .bs-lead-band:has(+ .bs-length-band) {
+  border-bottom: 0;
+}
+
+/* Everyone who asked not to be moved. */
+@media (prefers-reduced-motion: reduce) {
+  .bs-booker *,
+  .bs-booker *::before,
+  .bs-booker *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+
+  .bs-booker [data-testid="day"]:hover,
+  .bs-booker [data-testid="time"]:hover,
+  .bs-booker .bs-length-control ul li:hover {
+    transform: none !important;
+  }
+}
+
+/* Once a time is chosen the booker enters `booking` state, and EventDuration
+   filters its options down to the selected one (Duration.tsx). A lone segment
+   stretched across the sheet and filled with accent would read as a giant
+   button for something that is no longer changeable, so in that state it
+   collapses to a plain, unemphasised plate stating the chosen length. */
+.bs-booker .bs-length-control ul:has(li:only-child) {
+  max-width: 190px;
+}
+
+.bs-booker .bs-length-control ul li:only-child,
+.bs-booker .bs-length-control ul li:only-child[data-active="true"] {
+  background: var(--bs-sheet) !important;
+  color: var(--bs-ink) !important;
+  border-color: var(--bs-rule) !important;
+  box-shadow: none;
+  cursor: default;
+  transform: none;
+}
+
+/* Timeslots read better centred in a 300px rail, and the stock button centres
+   its own inner span regardless — so the flex-start above never took effect.
+   Committing to centred rather than leaving a rule that claims otherwise. */
+.bs-booker [data-testid="time"] {
+  justify-content: center !important;
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+}
+
+/* The DURATION label was inheriting the generic kicker treatment: --bs-ink-faint
+   at 11px, which measures ~4:1 against the raised band and so fails WCAG AA for
+   small text in BOTH themes. A kicker can afford to whisper when it labels a
+   passive fact (Where, Time zone); this one labels the most consequential
+   control on the page, so it is set in full ink at a heavier weight. Tracking is
+   eased off slightly because letter-spacing that wide fights legibility once the
+   weight goes up. */
+.bs-booker .bs-length-kicker {
+  color: var(--bs-ink);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}

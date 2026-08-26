@@ -3,7 +3,7 @@ import { loadTranslations } from "@calcom/i18n/server";
 import { IconSprites } from "@calcom/ui/components/icon";
 import { buildLegacyRequest } from "@lib/buildLegacyCtx";
 import { dir } from "i18next";
-import { Inter } from "next/font/google";
+import { Inter, Inter_Tight, Source_Serif_4 } from "next/font/google";
 import localFont from "next/font/local";
 import { cookies, headers } from "next/headers";
 import Script from "next/script";
@@ -15,6 +15,30 @@ import { Providers } from "./providers";
 import { SpeculationRules } from "./SpeculationRules";
 
 const interFont = Inter({ subsets: ["latin"], variable: "--font-sans", preload: true, display: "swap" });
+// BROADSHEET: the serif is the DISPLAY face — headline, month name, lead line.
+// next/font self-hosts this at build time, so no external font request is made at
+// runtime. Italic is included because the booking-page lead line is set in italic.
+const serifFont = Source_Serif_4({
+  subsets: ["latin"],
+  variable: "--font-serif",
+  weight: ["400", "600", "700"],
+  style: ["normal", "italic"],
+  preload: true,
+  display: "swap",
+});
+// BROADSHEET: the grotesk is the CHROME face — kickers, weekday heads, day and
+// time numerals, buttons, the duration control. Pairing a display serif against a
+// tight grotesk is what stops the booking surface reading as uniformly bookish;
+// the serif alone made buttons and numerals look like body copy. Tight is chosen
+// over plain Inter for its narrower fit and stronger heavy weights, which matter
+// at the large numerals used in the calendar and the duration segments.
+const uiFont = Inter_Tight({
+  subsets: ["latin"],
+  variable: "--font-ui",
+  weight: ["400", "500", "600", "700"],
+  preload: true,
+  display: "swap",
+});
 const calFont = localFont({
   src: "../fonts/CalSans-SemiBold.woff2",
   variable: "--font-cal",
@@ -114,12 +138,38 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       suppressHydrationWarning
       data-nextjs-router="app">
       <head nonce={nonce}>
-        <style>{`
+        {/* next/font emits ALREADY-QUOTED family names, e.g. 'Source Serif 4'.
+            Those quotes are load-bearing: an unquoted CSS font family must be a
+            sequence of identifiers, and 4 is not a valid identifier, so the
+            unquoted form makes the whole font-family declaration invalid at
+            computed-value time and the browser silently falls back to its
+            default serif. Inter Tight survives unquoted only because it happens
+            to contain no digits — which is exactly why this failed silently.
+
+            dangerouslySetInnerHTML, not a text child: React HTML-escapes text
+            children, which would turn each ' into &#x27; and break the CSS. The
+            content is a build-time constant derived from next/font, with no
+            user input anywhere in it. */}
+        <style
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: build-time constant, see above
+          dangerouslySetInnerHTML={{
+            __html: `
           :root {
-            --font-sans: ${interFont.style.fontFamily.replace(/\'/g, "")}, system-ui;
-            --font-cal: ${calFont.style.fontFamily.replace(/\'/g, "")};
+            --font-serif: ${serifFont.style.fontFamily}, Georgia, serif;
+            /* BROADSHEET: the chrome face. Deliberately NOT wired into
+               --font-sans, so this stays opt-in via broadsheet.css and the
+               dashboard is untouched by the booking-page type pairing. */
+            --font-ui: ${uiFont.style.fontFamily}, ui-sans-serif, system-ui, sans-serif;
+            /* BROADSHEET: --font-sans and --font-cal are deliberately pointed at
+               the serif so every surface (headings and chrome alike) inherits it
+               without touching each component. Inter/Cal Sans remain as fallbacks
+               only, so nothing breaks if the serif fails to load. */
+            --font-sans: ${serifFont.style.fontFamily}, ${interFont.style.fontFamily}, Georgia, serif;
+            --font-cal: ${serifFont.style.fontFamily}, ${calFont.style.fontFamily}, Georgia, serif;
           }
-        `}</style>
+        `,
+          }}
+        />
         {process.env.NODE_ENV === "development" && (
           <Script
             src="//unpkg.com/react-grab/dist/index.global.js"

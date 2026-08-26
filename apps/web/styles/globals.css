@@ -3,6 +3,9 @@
 @import "../../../packages/config/theme/tokens.css";
 @import "../../../packages/coss-ui/src/styles/globals.css";
 @import "./raqb.css";
+/* BROADSHEET booking-page treatment. Kept in its own untracked file so upstream
+   merges only ever touch this single import line. */
+@import "./broadsheet.css";
 
 ::-moz-selection {
   color: var(--cal-brand-text);
