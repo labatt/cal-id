@@ -154,21 +154,24 @@ enum CancellationReasonRequirement {
 }
 
 model EventType {
-  id                Int     @id @default(autoincrement())
+  id                   Int     @id @default(autoincrement())
   /// @zod.string.min(1)
-  title             String
+  title                String
   /// @zod.import(["import { eventTypeSlug } from '../../zod-utils'"]).custom.use(eventTypeSlug)
-  slug              String
-  description       String?
-  interfaceLanguage String?
-  position          Int     @default(0)
+  slug                 String
+  description          String?
+  interfaceLanguage    String?
+  position             Int     @default(0)
   /// @zod.import(["import { eventTypeLocations } from '../../zod-utils'"]).custom.use(eventTypeLocations)
-  locations         Json?
+  locations            Json?
+  /// Opt-in: when true, this event type resolves its location from the schedule's
+  /// ScheduleLocationRule rows for the booked date. Off by default so nothing changes.
+  useScheduleLocations Boolean @default(false)
   /// @zod.number.min(1)
-  length            Int
-  offsetStart       Int     @default(0)
-  hidden            Boolean @default(false)
-  hosts             Host[]
+  length               Int
+  offsetStart          Int     @default(0)
+  hidden               Boolean @default(false)
+  hosts                Host[]
 
   users  User[] @relation("user_eventtype")
   owner  User?  @relation("owner", fields: [userId], references: [id], onDelete: Cascade)
@@ -943,15 +946,17 @@ model Tracking {
 }
 
 model Schedule {
-  id                   Int            @id @default(autoincrement())
-  user                 User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                   Int                    @id @default(autoincrement())
+  user                 User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId               Int
   eventType            EventType[]
-  instantMeetingEvents EventType[]    @relation("InstantMeetingSchedule")
-  restrictionSchedule  EventType[]    @relation("restrictionSchedule")
+  instantMeetingEvents EventType[]            @relation("InstantMeetingSchedule")
+  restrictionSchedule  EventType[]            @relation("restrictionSchedule")
   name                 String
   timeZone             String?
   availability         Availability[]
+  locations            ScheduleLocation[]
+  locationRules        ScheduleLocationRule[]
   Host                 Host[]
 
   @@index([userId])
@@ -973,6 +978,48 @@ model Availability {
   @@index([userId])
   @@index([eventTypeId])
   @@index([scheduleId])
+}
+
+/// A place the schedule's owner works from. Exists as its own row rather than being
+/// inlined on the rule so the date-assignment editor has a fixed palette to pick from,
+/// and so an address is written once instead of copied onto every rule that uses it.
+model ScheduleLocation {
+  id           Int                    @id @default(autoincrement())
+  schedule     Schedule               @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  scheduleId   Int
+  label        String
+  /// Short marker shown on booking-page day cells and time slots, e.g. "TPA".
+  shortCode    String
+  type         String
+  address      String?
+  credentialId Int?
+  rules        ScheduleLocationRule[]
+
+  @@unique([scheduleId, shortCode])
+  @@index([scheduleId])
+}
+
+/// When the schedule's owner is at a given ScheduleLocation. Mirrors Availability: a row
+/// is either a recurring weekday pattern (days) or a one-off override (date), and dated
+/// rows win. Rules are evaluated in the schedule's timezone, not the booker's.
+model ScheduleLocationRule {
+  id                 Int              @id @default(autoincrement())
+  schedule           Schedule         @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  scheduleId         Int
+  location           ScheduleLocation @relation(fields: [scheduleLocationId], references: [id], onDelete: Cascade)
+  scheduleLocationId Int
+  /// First match wins. Explicit ordering because time ranges and catch-all rules overlap
+  /// by design, so disjointness cannot be relied on to pick a winner.
+  position           Int
+  date               DateTime?        @db.Date
+  days               Int[]
+  startTime          DateTime?        @db.Time
+  endTime            DateTime?        @db.Time
+  /// When true the booker cannot choose a different location for a matching slot.
+  locked             Boolean          @default(false)
+
+  @@index([scheduleId, position])
+  @@index([scheduleLocationId])
 }
 
 model SelectedCalendar {
