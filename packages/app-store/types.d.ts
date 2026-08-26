@@ -12,6 +12,18 @@ export type IntegrationOAuthCallbackState = {
   installGoogleVideo?: boolean;
   teamId?: number;
   defaultInstall?: boolean;
+  /**
+   * When set, the OAuth callback repairs this existing credential in place instead of
+   * creating a second one. Reconnecting has to preserve the credential id because
+   * DestinationCalendar, SelectedCalendar and event-type app metadata all reference it;
+   * creating a fresh credential would orphan those rows and leave the broken credential
+   * behind, still failing and still showing the error on the calendars page.
+   *
+   * This id is NOT trustworthy on its own: the nonce hash below binds the state to a user,
+   * but the user composes the state, so the callback must confirm the credential actually
+   * belongs to the session user before writing to it.
+   */
+  reconnectCredentialId?: number;
   nonce?: string;
   nonceHash?: string;
 };

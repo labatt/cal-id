@@ -39,6 +39,7 @@ function useAddAppMutation(_type: App["type"] | null, options?: UseAddAppMutatio
         teamId?: number;
         returnTo?: string;
         defaultInstall?: boolean;
+        reconnectCredentialId?: number;
       }
     | ""
   >({
@@ -47,6 +48,8 @@ function useAddAppMutation(_type: App["type"] | null, options?: UseAddAppMutatio
       let type: string | null | undefined;
       const teamId = variables && variables.teamId ? variables.teamId : undefined;
       const defaultInstall = variables && variables.defaultInstall ? variables.defaultInstall : undefined;
+      const reconnectCredentialId =
+        variables && variables.reconnectCredentialId ? variables.reconnectCredentialId : undefined;
       const returnTo = options?.returnTo
         ? options.returnTo
         : variables && variables.returnTo
@@ -71,6 +74,7 @@ function useAddAppMutation(_type: App["type"] | null, options?: UseAddAppMutatio
         ...(type === "google_calendar" && { installGoogleVideo: options?.installGoogleVideo }),
         ...(returnTo && { returnTo }),
         ...(defaultInstall && { defaultInstall }),
+        ...(reconnectCredentialId && { reconnectCredentialId }),
       };
 
       const stateStr = JSON.stringify(state);

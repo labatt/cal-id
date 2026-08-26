@@ -78,7 +78,38 @@ async function getHandler(req: NextApiRequest, res: NextApiResponse) {
       appId: "google-calendar",
       type: "google_calendar",
     });
-    const gcalCredential = await CredentialRepository.create(gcalCredentialData);
+
+    // A reconnect repairs the credential the user already has rather than adding a second
+    // one. Keeping the same credential id is the whole point: DestinationCalendar,
+    // SelectedCalendar and event-type app metadata all reference it, so a fresh credential
+    // would silently strip the user's "add to calendar" target and leave the dead credential
+    // behind, still erroring on the calendars page.
+    //
+    // The id arrives inside the OAuth state, which the user composes, so it is not trusted
+    // here: updateKeyByIdAndUserId scopes the write by userId and appId and raises P2025 if
+    // this credential is not the session user's Google Calendar credential.
+    const reconnectCredentialId =
+      typeof state?.reconnectCredentialId === "number" ? state.reconnectCredentialId : null;
+
+    let gcalCredential;
+    if (reconnectCredentialId !== null) {
+      try {
+        gcalCredential = await CredentialRepository.updateKeyByIdAndUserId({
+          id: reconnectCredentialId,
+          userId: req.session.user.id,
+          appId: "google-calendar",
+          key,
+          encryptedKey: gcalCredentialData.encryptedKey ?? null,
+        });
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+          throw new HttpError({ statusCode: 404, message: "Credential not found" });
+        }
+        throw error;
+      }
+    } else {
+      gcalCredential = await CredentialRepository.create(gcalCredentialData);
+    }
 
     const gCalService = createGoogleCalendarServiceWithGoogleType({
       ...gcalCredential,
@@ -136,7 +167,12 @@ async function getHandler(req: NextApiRequest, res: NextApiResponse) {
         // else
         errorMessage = "account_already_linked";
       }
-      await CredentialRepository.deleteById({ id: gcalCredential.id });
+      // Only roll back a credential this request created. On a reconnect the credential
+      // predates the request and the user still depends on it, so deleting it here would
+      // turn a recoverable failure into a disconnected calendar.
+      if (reconnectCredentialId === null) {
+        await CredentialRepository.deleteById({ id: gcalCredential.id });
+      }
       res.redirect(
         `${
           getSafeRedirectUrl(state?.onErrorReturnTo) ??

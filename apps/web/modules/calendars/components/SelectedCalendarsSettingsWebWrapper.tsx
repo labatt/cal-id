@@ -72,6 +72,7 @@ const ConnectedCalendarList = ({
                     onSuccess={onChanged}
                     delegationCredentialId={connectedCalendar.delegationCredentialId}
                     disableConnectionModification={disableConnectionModification}
+                    integrationType={connectedCalendar.integration.type}
                   />
                 </div>
               }>
@@ -128,6 +129,7 @@ const ConnectedCalendarList = ({
                   onSuccess={onChanged}
                   delegationCredentialId={connectedCalendar.delegationCredentialId}
                   disableConnectionModification={disableConnectionModification}
+                  integrationType={connectedCalendar.integration.type}
                 />
               </div>
             }

@@ -23,6 +23,10 @@ type CredentialUpdateInput = {
   appId?: string;
   delegationCredentialId?: string | null;
   invalid?: boolean;
+  // A credential stores its key twice: `key` as plaintext JSON and `encryptedKey` via the
+  // keyring. Anything that replaces the key (an OAuth reconnect) must replace both, or the
+  // two fall out of sync and which one wins depends on whether the keyring is configured.
+  encryptedKey?: string | null;
 };
 
 export class CredentialRepository {
@@ -59,6 +63,41 @@ export class CredentialRepository {
     });
     return buildNonDelegationCredential(credential);
   }
+  /**
+   * Replaces the stored token of a credential the user already owns, for OAuth reconnects.
+   *
+   * `userId` and `appId` are part of the where clause rather than a preceding ownership check
+   * so that a caller cannot repair one user's credential with another user's token: a
+   * mismatch matches no row and Prisma raises P2025 instead of silently writing.
+   *
+   * `invalid` is cleared because a successful reconnect is exactly the event that makes a
+   * previously-revoked credential usable again; leaving it set would keep the "permissions
+   * expired" banner up after the problem is fixed.
+   */
+  static async updateKeyByIdAndUserId({
+    id,
+    userId,
+    appId,
+    key,
+    encryptedKey,
+  }: {
+    id: number;
+    userId: number;
+    appId: string;
+    key: object;
+    encryptedKey?: string | null;
+  }) {
+    const credential = await prisma.credential.update({
+      where: { id, userId, appId },
+      data: {
+        key: key as Prisma.InputJsonValue,
+        ...(encryptedKey !== undefined && { encryptedKey }),
+        invalid: false,
+      },
+    });
+    return buildNonDelegationCredential(credential);
+  }
+
   static async findByAppIdAndUserId({ appId, userId }: { appId: string; userId: number }) {
     const credential = await prisma.credential.findFirst({
       where: {
