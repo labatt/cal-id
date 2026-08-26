@@ -5,6 +5,7 @@ import { useLayoutEffect } from "react";
 import "@calcom/embed-core/src/embed-iframe";
 import { HttpError } from "@calcom/lib/http-error";
 import { Button } from "@calcom/ui/components/button";
+import { PoorlyCalendar } from "./PoorlyCalendar";
 
 type Props = {
   statusCode?: number | null;
@@ -66,6 +67,54 @@ export const ErrorPage: React.FC<Props> = (props) => {
       window.CalComPageStatus = statusCode.toString();
     }
   }, [statusCode]);
+
+  // Only server-side failures get the maintenance framing. A 404 reached through
+  // pages/_error is not an outage and should not claim to be one.
+  const isServerFailure = !statusCode || statusCode >= 500;
+
+  if (isServerFailure) {
+    return (
+      <>
+        <div className="bg-subtle flex min-h-screen items-center justify-center px-4 py-10">
+          <div className="bg-default w-full max-w-md rounded-lg p-8 text-center shadow-sm sm:p-10">
+            <PoorlyCalendar className="text-emphasis mx-auto h-40 w-40" />
+            <h1 className="font-cal text-emphasis mt-6 text-2xl">We&apos;re under the weather</h1>
+            <p className="text-subtle mt-3 text-sm leading-relaxed">
+              We&apos;re performing some maintenance right now. Nothing you did caused this — please try again
+              in a few minutes.
+            </p>
+
+            <div className="mt-7 flex flex-col justify-center gap-2 sm:flex-row">
+              <Button color="primary" onClick={handleReset}>
+                Try again
+              </Button>
+              <Button color="secondary" href="mailto:support@cal.com">
+                Contact support
+              </Button>
+            </div>
+
+            {message ? (
+              // Kept, but folded away: the detail still helps a support conversation, while a
+              // raw error dump on the page undercuts the message that this is routine.
+              <details className="mt-7 text-left">
+                <summary className="text-subtle cursor-pointer text-xs select-none">
+                  Technical details
+                </summary>
+                <pre className="bg-emphasis text-emphasis mt-2 max-h-40 overflow-auto rounded-md p-3 text-xs whitespace-pre-wrap wrap-break-word">
+                  {message}
+                </pre>
+              </details>
+            ) : null}
+          </div>
+        </div>
+        {displayDebug && (
+          <div className="flex-wrap">
+            <ErrorDebugPanel error={error} />
+          </div>
+        )}
+      </>
+    );
+  }
 
   return (
     <>
