@@ -51,6 +51,220 @@ Cal.diy is **100% MIT-licensed** with no proprietary "Enterprise Edition" featur
 
 > **Note:** Cal.diy is a self-hosted project. There is no hosted/managed version. You run it on your own infrastructure.
 
+### What's different in this fork?
+
+This fork ([labatt/cal-id](https://github.com/labatt/cal-id)) tracks
+[onehashai/cal-id](https://github.com/onehashai/Cal-ID) and adds the following. Everything
+here is additive — no upstream feature has been removed, and features that need a schema
+column default to off, so an existing database behaves exactly as it did before.
+
+| Area | Change |
+| --- | --- |
+| Booking page | A "broadsheet" theme for month view: display serif for the headline and month, tight grotesk for numerals and controls, duration promoted to a full-width band |
+| Calendars | **Reconnect** action for an OAuth calendar whose grant was revoked, repairing the credential in place |
+| Availability | **Schedule location rules** — a default meeting location per weekday, plus per-date overrides |
+| Errors | A maintenance page on 5xx instead of a raw stack-trace screen |
+| Ops | `build.sh` and `ecosystem.config.js` for building and running under pm2 |
+
+#### Booking page theme
+
+The public month-view booking page is restyled as a newsprint broadsheet. Duration moves out
+of the sidebar detail list into a band beneath the lead, because duration decides which slots
+exist and so needs to be read before a date is picked rather than discovered next to the
+confirmation button.
+
+Styles live in `apps/web/styles/broadsheet.css` and are scoped to `.bs-booker`, so the
+dashboard is untouched.
+
+#### Reconnect a broken calendar connection
+
+When a calendar's OAuth grant is revoked, upstream shows "Try reconnecting your calendar with
+all necessary permissions" but offers no way to do it: the credential menu has only *Remove
+app*, and the app-store page disables *Install* once a credential exists. Recovering meant
+removing the connection and adding it back, which deletes the destination-calendar setting.
+
+This fork adds **Reconnect** to the credential menu. It re-runs OAuth and repairs the existing
+credential, keeping its id — `DestinationCalendar`, `SelectedCalendar` and event-type app
+metadata all reference it. The target credential travels in the OAuth state, which the client
+composes, so the write is scoped by user and app id and refuses anything that is not the
+session user's.
+
+Currently offered for Google Calendar only, since it requires the app's callback to honour the
+reconnect state.
+
+#### Schedule location rules
+
+Records where the schedule's owner physically is, so bookings resolve to the right location
+automatically.
+
+- A **default location per weekday**, set on that day's row in the availability editor next to
+  its hours, with a lock toggle for days where the booker gets no choice.
+- **Per-date overrides** on a month calendar below, for weeks that depart from the pattern.
+- Rules are evaluated in the **schedule's own timezone**. A Friday 10:00 slot in New York is
+  already Saturday in Sydney; "Friday" means Friday where the organiser is.
+
+Adds two tables (`ScheduleLocation`, `ScheduleLocationRule`) and one column
+(`EventType.useScheduleLocations`, default `false`). See
+[`docs/superpowers/specs/2026-08-26-schedule-location-rules-design.md`](./docs/superpowers/specs/2026-08-26-schedule-location-rules-design.md).
+
+> **Status:** the editor and API are complete. Wiring resolution into the booking flow so
+> bookers see and get the resolved location is not done yet, so the rules are recorded but do
+> not yet change what a booker sees.
+
+#### Maintenance page on server errors
+
+A 5xx now renders a short "we're under the weather" page with a retry, rather than an error
+name and a block of exception text. The detail is kept in a collapsed disclosure for support.
+Only 5xx is affected — a 404 is not an outage and keeps its own page.
+
+### Deploying this fork on a fresh server
+
+The steps below are what this fork actually runs on: Ubuntu 24.04, Node 22, PostgreSQL 18,
+nginx and pm2. Upstream's Docker instructions further down still apply if you would rather
+containerise.
+
+#### 1. System packages
+
+```bash
+sudo apt update
+sudo apt install -y git nginx postgresql certbot python3-certbot-nginx
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt install -y nodejs
+sudo corepack enable            # provides yarn 4 via the repo's yarnPath
+sudo npm install -g pm2
+```
+
+#### 2. Database
+
+```bash
+sudo -u postgres psql -c "CREATE USER calid_user WITH PASSWORD 'choose-a-strong-one';"
+sudo -u postgres psql -c "CREATE DATABASE calid_db OWNER calid_user;"
+```
+
+#### 3. Clone and configure
+
+```bash
+sudo git clone https://github.com/labatt/cal-id.git /srv/your-domain.com
+cd /srv/your-domain.com
+cp .env.example .env
+```
+
+Edit `.env`. The values that must be set for a working install:
+
+| Variable | Notes |
+| --- | --- |
+| `DATABASE_URL` | `postgresql://calid_user:PASSWORD@127.0.0.1:5432/calid_db` |
+| `DATABASE_DIRECT_URL` | same as `DATABASE_URL` |
+| `NEXT_PUBLIC_WEBAPP_URL` | `https://your-domain.com` |
+| `NEXTAUTH_URL` | `https://your-domain.com` |
+| `NEXTAUTH_SECRET` | `openssl rand -base64 32` |
+| `CALENDSO_ENCRYPTION_KEY` | `openssl rand -base64 24` — must be 32 chars for AES256 |
+
+> `NEXT_PUBLIC_*` values are **inlined at build time**, not read at runtime. Changing your
+> domain later means a full rebuild, not just a restart.
+
+#### 4. Install, migrate, seed
+
+```bash
+yarn install
+yarn workspace @calcom/prisma db-deploy      # applies migrations, including this fork's
+yarn workspace @calcom/prisma seed-app-store
+```
+
+`db-deploy` rather than `db-migrate`: it applies existing migrations without ever offering to
+reset the database, which is what you want anywhere with real bookings in it.
+
+If you are using Google Calendar, install its credentials into the `App` table after setting
+`GOOGLE_API_CREDENTIALS` (see *Obtaining the Google API Credentials*):
+
+```bash
+yarn tsx scripts/seed-google-apps.ts
+```
+
+#### 5. Build
+
+```bash
+./build.sh
+```
+
+Use this rather than a bare `yarn build`. The web build depends on two artefacts turbo's graph
+does not produce on its own — a built `embed-core` copied into `public/embed`, and the
+app-store's staged static assets — and it must build `@calcom/trpc` first, because the web
+app's tRPC client reads its router types from that package's generated declarations. Skip that
+and type errors appear in files you never touched.
+
+> `next build` deletes `.next/BUILD_ID` at the start and does not restore it if the build
+> fails. The running process keeps serving from memory, but **the next restart will fail to
+> boot**. Always confirm the build succeeded before restarting.
+
+#### 6. Run under pm2
+
+```bash
+pm2 start ecosystem.config.js
+pm2 save
+pm2 startup            # then run the command it prints, to survive reboots
+```
+
+The app listens on `127.0.0.1:3050`; nginx terminates TLS in front of it.
+
+#### 7. nginx and TLS
+
+WebSocket upgrades need a `$connection_upgrade` map in the `http` context, so create
+`/etc/nginx/conf.d/connection_upgrade.conf` once:
+
+```nginx
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+```
+
+Then `/etc/nginx/sites-available/your-domain.com`:
+
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    location ^~ /.well-known/acme-challenge/ { root /var/www/certbot; }
+
+    location / {
+        proxy_pass http://127.0.0.1:3050;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+        client_max_body_size 32m;
+        proxy_buffering off;
+    }
+}
+```
+
+```bash
+sudo ln -s /etc/nginx/sites-available/your-domain.com /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d your-domain.com     # rewrites the block for TLS
+```
+
+#### 8. Create the first user
+
+Visit `https://your-domain.com/auth/signup`. If signups are disabled
+(`NEXT_PUBLIC_DISABLE_SIGNUP`), enable them for the first account and disable them again after.
+
+#### Updating
+
+```bash
+git pull                                   # or: git pull upstream main
+yarn install
+yarn workspace @calcom/prisma db-deploy
+./build.sh && pm2 restart calid-web        # only restart if the build succeeded
+```
+
 ## Sponsors
 
 We are grateful to the companies supporting Cal ID.
@@ -685,6 +899,7 @@ Unlike Cal.com's "Open Core" model, Cal.diy has **no commercial/enterprise code*
 4. Next, go to the [OAuth consent screen](https://console.cloud.google.com/apis/credentials/consent) from the side pane. Select the app type (Internal or External) and enter the basic app details on the first page.
 5. In the second page on Scopes, select Add or Remove Scopes. Search for Calendar.event and select the scope with scope value `.../auth/calendar.events`, `.../auth/calendar.readonly` and select Update.
 6. In the third page (Test Users), add the Google account(s) you'll be using. Make sure the details are correct on the last page of the wizard and your consent screen will be configured.
+   > Test users only apply while the app is in **Testing**, where Google expires refresh tokens after 7 days. Plan to publish the app — see the note at the end of this section.
 7. Now select [Credentials](https://console.cloud.google.com/apis/credentials) from the side pane and then select Create Credentials. Select the OAuth Client ID option.
 8. Select Web Application as the Application Type.
 9. Under Authorized redirect URI's, select Add URI and then add the URI `<Cal.diy URL>/api/integrations/googlecalendar/callback` and `<Cal.diy URL>/api/auth/callback/google` replacing Cal.diy URL with the URI at which your application runs.
@@ -707,6 +922,25 @@ following
 
 1. Add extra redirect URL `<Cal.diy URL>/api/auth/callback/google`
 1. Under 'OAuth consent screen', click "PUBLISH APP"
+
+> **Publishing is not optional, and skipping it fails a week later.** While the consent screen
+> is in **Testing**, Google expires refresh tokens after **7 days**. Everything works, then one
+> morning every calendar call returns `invalid_grant`, availability silently stops reflecting
+> your real calendar, and the only fix is reconnecting — which lasts another 7 days.
+>
+> Set **Publishing status** to *In production* on the
+> [Audience page](https://console.cloud.google.com/auth/audience), then reconnect once to mint
+> a token under the new rules. Publishing does not resurrect the token you already have.
+>
+> Publishing does **not** make your instance available to anyone else. It changes token
+> lifetime, not access control — the OAuth flow still requires a logged-in account on your own
+> instance, and Google does not list OAuth clients anywhere. You will be "unverified", which
+> means a one-time *"Google hasn't verified this app" → Advanced → Continue* interstitial and a
+> 100-user cap. Both are fine for a self-hosted instance; verification only removes the warning
+> and lifts the cap.
+>
+> If your domain is on Google Workspace you can instead set **User type: Internal**, which has
+> no 7-day expiry and no warning screen, but only accepts accounts in your own organisation.
 
 ### Obtaining Microsoft Graph Client ID and Secret
 
