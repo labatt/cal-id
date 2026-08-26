@@ -106,47 +106,43 @@ export const AvailabilitySettingsWebWrapper = ({
   });
 
   return (
-    <>
-      <AvailabilitySettings
-        schedule={schedule}
-        travelSchedules={isDefaultSchedule ? travelSchedules || [] : []}
-        isDeleting={deleteMutation.isPending}
-        isLoading={false}
-        isSaving={updateMutation.isPending}
-        enableOverrides={true}
-        timeFormat={timeFormat}
-        weekStart={me.data?.weekStart || "Sunday"}
-        backPath={fromEventType ? true : "/availability"}
-        handleDelete={() => {
-          scheduleId && deleteMutation.mutate({ scheduleId });
-        }}
-        handleSubmit={async ({ dateOverrides, ...values }) => {
-          if (!values.name.trim()) {
-            showToast(t("schedule_name_cannot_be_empty"), "error");
-            return;
-          }
-          scheduleId &&
-            updateMutation.mutate({
-              scheduleId,
-              dateOverrides: dateOverrides.flatMap((override) => override.ranges),
-              ...values,
-            });
-        }}
-        bulkUpdateModalProps={{
-          isOpen: isBulkUpdateModalOpen,
-          setIsOpen: setIsBulkUpdateModalOpen,
-          save: bulkUpdateFunction,
-          isSaving: bulkUpdateDefaultAvailabilityMutation.isPending,
-          eventTypes: eventTypesQueryData?.eventTypes,
-          isEventTypesFetching,
-          handleBulkEditDialogToggle: handleBulkEditDialogToggle,
-        }}
-      />
-      {/* Rendered alongside AvailabilitySettings rather than inside it: that component lives in
-        packages/platform/atoms, which may not import tRPC, and this section is tRPC-driven.
-        Sitting directly under the availability editor also reads correctly — when you are
-        free, then where you are. */}
-      {scheduleId ? <ScheduleLocationsCard scheduleId={scheduleId} /> : null}
-    </>
+    <AvailabilitySettings
+      schedule={schedule}
+      travelSchedules={isDefaultSchedule ? travelSchedules || [] : []}
+      isDeleting={deleteMutation.isPending}
+      isLoading={false}
+      isSaving={updateMutation.isPending}
+      enableOverrides={true}
+      timeFormat={timeFormat}
+      weekStart={me.data?.weekStart || "Sunday"}
+      backPath={fromEventType ? true : "/availability"}
+      handleDelete={() => {
+        scheduleId && deleteMutation.mutate({ scheduleId });
+      }}
+      handleSubmit={async ({ dateOverrides, ...values }) => {
+        if (!values.name.trim()) {
+          showToast(t("schedule_name_cannot_be_empty"), "error");
+          return;
+        }
+        scheduleId &&
+          updateMutation.mutate({
+            scheduleId,
+            dateOverrides: dateOverrides.flatMap((override) => override.ranges),
+            ...values,
+          });
+      }}
+      bulkUpdateModalProps={{
+        isOpen: isBulkUpdateModalOpen,
+        setIsOpen: setIsBulkUpdateModalOpen,
+        save: bulkUpdateFunction,
+        isSaving: bulkUpdateDefaultAvailabilityMutation.isPending,
+        eventTypes: eventTypesQueryData?.eventTypes,
+        isEventTypesFetching,
+        handleBulkEditDialogToggle: handleBulkEditDialogToggle,
+      }}
+      // Passed as a slot rather than rendered after this component: AvailabilitySettings owns
+      // the page Shell, so a sibling lands outside the content area, under the nav.
+      footerSlot={scheduleId ? <ScheduleLocationsCard scheduleId={scheduleId} /> : null}
+    />
   );
 };
