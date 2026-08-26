@@ -263,10 +263,10 @@ export const ScheduleLocationsCard = ({ scheduleId }: { scheduleId: number }) =>
       </div>
 
       <div className="border-subtle mt-6 border-t pt-5">
-        <h3 className="text-emphasis mb-1 text-sm font-medium">{t("location_calendar")}</h3>
+        <h3 className="text-emphasis mb-1 text-sm font-medium">{t("location_overrides")}</h3>
         <p className="text-subtle mb-3 text-sm">
           {activeLocationId === null
-            ? t("pick_a_location_then_click_days")
+            ? `${t("location_overrides_description")} ${t("pick_a_location_then_click_days")}`
             : t("click_days_to_assign", { location: locationsById.get(activeLocationId)?.label ?? "" })}
         </p>
         <LocationMonthGrid

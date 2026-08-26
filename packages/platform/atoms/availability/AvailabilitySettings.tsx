@@ -123,6 +123,12 @@ type AvailabilitySettingsProps = {
    * tRPC-driven node in, and the atom never imports tRPC itself.
    */
   footerSlot?: React.ReactNode;
+  /**
+   * Renders a control on each weekday row, used to give the day a default meeting location.
+   * Receives the calendar weekday (0 = Sunday). A render prop rather than data, so this
+   * package stays free of the caller's data layer.
+   */
+  renderDayLocation?: (weekdayIndex: number) => React.ReactNode;
 };
 
 const DeleteDialogButton = ({
@@ -312,6 +318,7 @@ export const AvailabilitySettings = forwardRef<AvailabilitySettingsFormRef, Avai
       callbacksRef,
       isDryRun,
       footerSlot,
+      renderDayLocation,
     } = props;
     const [openSidebar, setOpenSidebar] = useState(false);
     const { t, i18n } = useLocale();
@@ -682,6 +689,7 @@ export const AvailabilitySettings = forwardRef<AvailabilitySettingsFormRef, Avai
                       control={form.control}
                       name="schedule"
                       userTimeFormat={timeFormat}
+                      renderDayLocation={renderDayLocation}
                       weekStart={
                         [
                           "Sunday",

@@ -1,3 +1,16 @@
+import process from "node:process";
+import type { scheduleClassNames } from "@calcom/atoms/availability/types";
+import type { ConfigType } from "@calcom/dayjs";
+import dayjs from "@calcom/dayjs";
+import { defaultDayRange as DEFAULT_DAY_RANGE } from "@calcom/lib/availability";
+import { useLocale } from "@calcom/lib/hooks/useLocale";
+import { weekdayNames } from "@calcom/lib/weekday";
+import type { TimeRange } from "@calcom/types/schedule";
+import cn from "@calcom/ui/classNames";
+import { Button } from "@calcom/ui/components/button";
+import { Dropdown, DropdownMenuContent, DropdownMenuTrigger } from "@calcom/ui/components/dropdown";
+import { CheckboxField, Select, Switch } from "@calcom/ui/components/form";
+import { SkeletonText } from "@calcom/ui/components/skeleton";
 import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ArrayPath,
@@ -11,21 +24,6 @@ import type {
 } from "react-hook-form";
 import { Controller, useFieldArray, useFormContext } from "react-hook-form";
 import { createFilter, type GroupBase, type Props } from "react-select";
-
-import type { scheduleClassNames } from "@calcom/atoms/availability/types";
-import type { ConfigType } from "@calcom/dayjs";
-import dayjs from "@calcom/dayjs";
-import { defaultDayRange as DEFAULT_DAY_RANGE } from "@calcom/lib/availability";
-import { useLocale } from "@calcom/lib/hooks/useLocale";
-import { weekdayNames } from "@calcom/lib/weekday";
-import type { TimeRange } from "@calcom/types/schedule";
-import cn from "@calcom/ui/classNames";
-import { Button } from "@calcom/ui/components/button";
-import { Dropdown, DropdownMenuContent, DropdownMenuTrigger } from "@calcom/ui/components/dropdown";
-import { Select } from "@calcom/ui/components/form";
-import { CheckboxField } from "@calcom/ui/components/form";
-import { Switch } from "@calcom/ui/components/form";
-import { SkeletonText } from "@calcom/ui/components/skeleton";
 
 export type { TimeRange };
 
@@ -52,6 +50,7 @@ export const ScheduleDay = <TFieldValues extends FieldValues>({
   weekday,
   control,
   CopyButton,
+  locationControl,
   disabled,
   labels,
   userTimeFormat,
@@ -61,6 +60,12 @@ export const ScheduleDay = <TFieldValues extends FieldValues>({
   weekday: string;
   control: Control<TFieldValues>;
   CopyButton: JSX.Element;
+  /**
+   * Optional control shown on the row, used to give the day a default meeting location.
+   * A slot rather than built in here, so this component keeps knowing nothing about
+   * locations or where their data comes from — the same shape as CopyButton above.
+   */
+  locationControl?: React.ReactNode;
   disabled?: boolean;
   labels?: ScheduleLabelsType;
   userTimeFormat: number | null;
@@ -131,6 +136,11 @@ export const ScheduleDay = <TFieldValues extends FieldValues>({
             />
           </div>
         )}
+        {/* Only for days that are actually available: a location on a day nobody can book
+            has nothing to apply to, and showing it invites setting rules that never fire. */}
+        {locationControl && watchDayRange.length > 0 ? (
+          <div className="mt-2 sm:ml-[88px]">{locationControl}</div>
+        ) : null}
       </>
     </div>
   );
@@ -191,6 +201,7 @@ export const ScheduleComponent = <
   labels,
   userTimeFormat,
   classNames,
+  renderDayLocation,
 }: {
   name: TPath;
   control: Control<TFieldValues>;
@@ -199,6 +210,8 @@ export const ScheduleComponent = <
   labels?: ScheduleLabelsType;
   userTimeFormat: number | null;
   classNames?: Omit<scheduleClassNames, "scheduleContainer">;
+  /** Receives the calendar weekday (0 = Sunday), not the position in the rotated week. */
+  renderDayLocation?: (weekdayIndex: number) => React.ReactNode;
 }) => {
   const { i18n } = useLocale();
 
@@ -221,6 +234,7 @@ export const ScheduleComponent = <
             CopyButton={
               <CopyButton weekStart={weekStart} labels={labels} getValuesFromDayRange={dayRangeName} />
             }
+            locationControl={renderDayLocation?.(weekdayIndex)}
           />
         );
       })}

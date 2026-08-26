@@ -14,6 +14,7 @@ import { revalidateSchedulePage } from "app/(use-page-wrapper)/availability/[sch
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { ScheduleLocationsCard } from "../components/ScheduleLocationsCard";
+import { WeekdayLocationSelect } from "../components/WeekdayLocationSelect";
 
 type PageProps = {
   scheduleData: RouterOutputs["viewer"]["availability"]["schedule"]["get"];
@@ -142,6 +143,13 @@ export const AvailabilitySettingsWebWrapper = ({
       }}
       // Passed as a slot rather than rendered after this component: AvailabilitySettings owns
       // the page Shell, so a sibling lands outside the content area, under the nav.
+      // The weekday default belongs on the day's own row, beside the hours it applies to;
+      // the card below only overrides a specific date.
+      renderDayLocation={
+        scheduleId
+          ? (weekdayIndex) => <WeekdayLocationSelect scheduleId={scheduleId} weekdayIndex={weekdayIndex} />
+          : undefined
+      }
       footerSlot={scheduleId ? <ScheduleLocationsCard scheduleId={scheduleId} /> : null}
     />
   );
