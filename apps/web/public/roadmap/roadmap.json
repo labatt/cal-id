@@ -86,7 +86,7 @@
       "title": "Event-type opt-in toggle for schedule locations",
       "summary": "A control on the event type to turn on useScheduleLocations, plus a warning when a schedule location is missing from that event type's own locations.",
       "affects": "apps/web/modules/event-types/",
-      "status": "queued",
+      "status": "working",
       "section": "Location-aware bookings",
       "notes": "This is the gate on everything else in this section. The column exists and defaults to false, and there is currently no way to set it, so a finished resolution path would still change nothing. Was inside the phase-2 scope and did not get built."
     },
@@ -107,6 +107,14 @@
       "status": "queued",
       "section": "Location-aware bookings",
       "notes": "Design settled by mockup. Marking only the exception rather than every day: it drops a month from 15 marks to 3, and changes the encoding from hue to presence, which survives greyscale and colour blindness. The first version used two coloured dots, which spent the page's second accent a dozen times a month when the whole point of that accent is that it appears once — and left colour as the only signal."
+    },
+    {
+      "id": 13,
+      "title": "Put active sub-projects at the top of the roadmap",
+      "summary": "A section with unfinished work should lead the page; only once all its items are done does it fall below the status tables.",
+      "affects": "apps/web/public/roadmap/index.html",
+      "status": "done",
+      "notes": "The first cut followed the brief literally — sections rendered after every status table — and the result was that all live work sat below nine finished items, which is the opposite of what the brief's own justification asked for ('a section earns the top of the page while its work is live'). Observed it on the rendered page and should have raised it then rather than shipping and waiting to be told. Verified in a browser rather than by reading the diff: heading order is now 'Location-aware bookings → Being worked on → Finished', with no page errors. A section drops back below the status tables automatically once every item in it is done, so nothing has to be remembered when it lands."
     }
   ]
 }

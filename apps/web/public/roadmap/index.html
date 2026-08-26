@@ -193,6 +193,48 @@
         var sectioned = items.filter(function (i) { return i.section; });
         var plain = items.filter(function (i) { return !i.section; });
 
+        var names = [];
+        sectioned.forEach(function (i) {
+          if (names.indexOf(i.section) === -1) names.push(i.section);
+        });
+
+        // A section earns the top of the page while its work is live, and loses it once
+        // everything in it is finished. Rendering every section after the status tables put
+        // all the live work underneath a growing pile of finished items, which is the exact
+        // opposite of "what needs attention is at the top".
+        function isLive(name) {
+          return sectioned.some(function (i) {
+            return i.section === name && i.status !== "done";
+          });
+        }
+        var liveSections = names.filter(isLive);
+        var finishedSections = names.filter(function (n) { return !isLive(n); });
+
+        function renderSection(name) {
+          var rows = sectioned.filter(function (i) { return i.section === name; });
+          var live = isLive(name);
+          var h = el("h2", { class: "section-head" }, name);
+          h.appendChild(el("span", { class: "count" }, rows.length + " items"));
+          app.appendChild(h);
+          app.appendChild(
+            el(
+              "p",
+              { class: "section-note" },
+              live
+                ? "A body of work in flight. Mixed statuses, shown together so progress is legible."
+                : "Complete. Drop the section field from these items and they rejoin the tables below."
+            )
+          );
+          // Within a section, order by the same status precedence, then oldest-first.
+          rows = rows.slice().sort(function (a, b) {
+            var d = STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status);
+            return d !== 0 ? d : a.id - b.id;
+          });
+          app.appendChild(buildTable("section:" + name, rows, null));
+        }
+
+        liveSections.forEach(renderSection);
+
         STATUS_ORDER.forEach(function (status) {
           var rows = plain.filter(function (i) { return i.status === status; });
           if (!rows.length) return;
@@ -205,29 +247,7 @@
           app.appendChild(buildTable("status:" + status, rows, status));
         });
 
-        // Sections come after the status tables. A body of work in flight earns its own
-        // table with mixed statuses, because "how far along is this" beats "what is queued
-        // across the whole project" — but only while it is live. Dropping the section field
-        // when it lands returns its items to the tables above on their own.
-        var names = [];
-        sectioned.forEach(function (i) {
-          if (names.indexOf(i.section) === -1) names.push(i.section);
-        });
-        names.forEach(function (name) {
-          var rows = sectioned.filter(function (i) { return i.section === name; });
-          var h = el("h2", { class: "section-head" }, name);
-          h.appendChild(el("span", { class: "count" }, rows.length + " items"));
-          app.appendChild(h);
-          app.appendChild(
-            el("p", { class: "section-note" }, "A body of work in flight. Mixed statuses, shown together so progress is legible.")
-          );
-          // Within a section, order by the same status precedence, then oldest-first.
-          rows = rows.slice().sort(function (a, b) {
-            var d = STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status);
-            return d !== 0 ? d : a.id - b.id;
-          });
-          app.appendChild(buildTable("section:" + name, rows, null));
-        });
+        finishedSections.forEach(renderSection);
 
         var f = el("footer", null, items.length + " items. Edited by hand in roadmap.json — no database, no admin UI.");
         app.appendChild(f);
