@@ -40,6 +40,8 @@ import { getEventName, updateHostInEventName } from "@calcom/features/eventtypes
 import { getFullName } from "@calcom/features/form-builder/utils";
 import type { HashedLinkService } from "@calcom/features/hashedLink/lib/service/HashedLinkService";
 import { ProfileRepository } from "@calcom/features/profile/repositories/ProfileRepository";
+import { resolveBookingLocation } from "@calcom/features/schedules/lib/resolveBookingLocation";
+import { ScheduleLocationRepository } from "@calcom/features/schedules/repositories/ScheduleLocationRepository";
 import { handleAnalyticsEvents } from "@calcom/features/tasker/tasks/analytics/handleAnalyticsEvents";
 import type { UserRepository } from "@calcom/features/users/repositories/UserRepository";
 import { UsersRepository } from "@calcom/features/users/users.repository";
@@ -1202,6 +1204,38 @@ async function handler(
     } else {
       locationBodyString = "integrations:daily";
     }
+  }
+
+  /**
+   * A locked schedule location has the final say, so this sits after every fallback above.
+   *
+   * The booker's UI already narrows the choice, but the endpoint accepts whatever location is
+   * posted — without this a crafted request could book in person on a day the organiser
+   * marked fixed. Enforcement has to live here rather than in the client.
+   *
+   * A locked rule is coerced rather than rejected. The organiser's statement is "this day is
+   * here", so honouring it is the correct outcome, and rejecting would also break a client
+   * that merely had the page open while the rules changed. An unlocked rule is only a
+   * default, so a deliberate choice by the booker stands.
+   */
+  const scheduleLocation = await resolveBookingLocation({
+    eventTypeId: eventType.id,
+    startTime: new Date(reqBody.start),
+    deps: {
+      findEventTypeScheduleContext: (args) => ScheduleLocationRepository.findEventTypeScheduleContext(args),
+      findScheduleTimeZone: (args) => ScheduleLocationRepository.findScheduleTimeZone(args),
+      findLocationsByScheduleId: (args) => ScheduleLocationRepository.findLocationsByScheduleId(args),
+      findRulesByScheduleId: (args) => ScheduleLocationRepository.findRulesByScheduleId(args),
+    },
+  });
+
+  if (scheduleLocation?.locked && locationBodyString !== scheduleLocation.locationType) {
+    tracingLogger.warn("Overriding posted location with the schedule's locked location", {
+      posted: locationBodyString,
+      enforced: scheduleLocation.locationType,
+    });
+    locationBodyString = scheduleLocation.locationType;
+    organizerOrFirstDynamicGroupMemberDefaultLocationUrl = undefined;
   }
 
   const invitee: Invitee = [
