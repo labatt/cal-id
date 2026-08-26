@@ -1227,6 +1227,8 @@
   "location_is_a_default": "Default — bookers may choose another location",
   "location_overrides": "Location overrides",
   "location_overrides_description": "Click a day to override its default location for that date only.",
+  "use_schedule_locations": "Use my location calendar",
+  "use_schedule_locations_description": "Set the meeting location from where you are on the booked date, using the locations on this schedule. Leave off to let bookers choose from this event type's own locations.",
   "where_youll_be": "Where you'll be",
   "where_youll_be_description": "Set a default location for each weekday beside its hours above, then override individual dates below.",
   "your_locations": "Your locations",

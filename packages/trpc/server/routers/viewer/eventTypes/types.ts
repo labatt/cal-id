@@ -129,6 +129,7 @@ const BaseEventTypeUpdateInput: z.ZodType<TUpdateInputSchema> = z
     periodEndDate: z.coerce.date().nullable().optional(),
     periodDays: z.number().int().nullable().optional(),
     periodCountCalendarDays: z.boolean().nullable().optional(),
+    useScheduleLocations: z.boolean().optional(),
     lockTimeZoneToggleOnBookingPage: z.boolean().optional(),
     lockedTimeZone: z.string().nullable().optional(),
     requiresConfirmation: z.boolean().optional(),

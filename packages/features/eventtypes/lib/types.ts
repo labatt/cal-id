@@ -100,6 +100,7 @@ export type FormValues = {
   offsetStart: number;
   description: string;
   disableGuests: boolean;
+  useScheduleLocations: boolean;
   lockTimeZoneToggleOnBookingPage: boolean;
   lockedTimeZone: string | null;
   requiresConfirmation: boolean;
@@ -346,6 +347,7 @@ export type EventTypeUpdateInput = {
   periodEndDate?: Date | null;
   periodDays?: number | null;
   periodCountCalendarDays?: boolean | null;
+  useScheduleLocations?: boolean;
   lockTimeZoneToggleOnBookingPage?: boolean;
   lockedTimeZone?: string | null;
   requiresConfirmation?: boolean;

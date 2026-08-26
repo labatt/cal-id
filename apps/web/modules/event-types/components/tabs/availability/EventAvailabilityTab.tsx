@@ -445,7 +445,11 @@ const EventTypeSchedule = ({
   const formMethods = useFormContext<FormValues>();
   const isManagedEventType = false;
   const isChildrenManagedEventType = false;
-  const shouldLockDisableProps = (_field: string) => ({ disabled: false, LockedIcon: false as const, isLocked: false });
+  const shouldLockDisableProps = (_field: string) => ({
+    disabled: false,
+    LockedIcon: false as const,
+    isLocked: false,
+  });
   const shouldLockIndicator = (_field: string) => false;
   const { watch, setValue } = formMethods;
 
@@ -634,6 +638,25 @@ const EventTypeSchedule = ({
           <p className="mt-2! ml-1 text-gray-600 text-sm">{t("members_default_schedule_description")}</p>
         )
       )}
+
+      {/* Only on the main schedule. The restriction schedule governs when a host may be
+          booked, not where they are, so location rules have nothing to say about it. */}
+      {fieldName === "schedule" ? (
+        <div className="mt-4">
+          <Controller
+            name="useScheduleLocations"
+            render={({ field: { value, onChange } }) => (
+              <SettingsToggle
+                toggleSwitchAtTheEnd
+                title={t("use_schedule_locations")}
+                description={t("use_schedule_locations_description")}
+                checked={!!value}
+                onCheckedChange={onChange}
+              />
+            )}
+          />
+        </div>
+      ) : null}
     </div>
   );
 };

@@ -88,7 +88,7 @@
       "affects": "apps/web/modules/event-types/",
       "status": "working",
       "section": "Location-aware bookings",
-      "notes": "This is the gate on everything else in this section. The column exists and defaults to false, and there is currently no way to set it, so a finished resolution path would still change nothing. Was inside the phase-2 scope and did not get built."
+      "notes": "This is the gate on everything else in this section: the column existed and defaulted to false with no way to set it, so a finished resolution path would still have changed nothing. Scoped to the main schedule only — the restriction schedule governs when a host can be booked, not where they are, so a location toggle there would mean nothing. Persistence came free because the update handler spreads ...rest into the Prisma update. Surprise worth recording: making useScheduleLocations required on FormValues produced zero compiler errors, so the form is assembled from a source that structurally carries every EventType column — adding event-type fields here is cheaper than it looks. NOT FULLY VERIFIED: the toggle renders and both strings are in the shipped client and server bundles, and tsc and the production build are clean, but the click-to-persist loop needs an authenticated session, which cannot be driven from here. Left as working until a human confirms the toggle sticks after a save and reload."
     },
     {
       "id": 11,
