@@ -87,6 +87,49 @@ yarn prisma generate        # Regenerate types after schema changes
 ```
 
 
+## What a green build does not prove
+
+`yarn type-check:ci` and `./build.sh` both passing means the code is **valid**, not that it
+**works**. Every defect in the schedule-locations feature passed both. On UI work, drive the
+page — screenshot it, read the DOM — before reporting something as done.
+
+The failure modes that keep recurring here, all of which compile and build cleanly:
+
+- **Rendering outside the page shell.** `AvailabilitySettings` returns `<Shell>`, so anything
+  rendered as its sibling lands outside the content area and appears under the nav. Components
+  that own the shell need a slot prop, not a neighbour.
+- **`hideWhenJustOneOption`.** The booking-page location field carries it, and
+  `getBookingResponsesSchema` hides the field at one option or fewer. Narrowing options to one
+  removes the field from the page entirely — and it never populates a value, so an empty
+  `responses.location` falls through to the default conferencing app and books Cal Video.
+- **Form fields pre-select their first option.** A pre-filled value is indistinguishable from a
+  deliberate choice, so "only apply a default if the user has not chosen" never fires. Key such
+  logic on what changed (the selected slot, say) instead.
+- **Explicit Prisma selects.** `eventTypeRepository.findById` and `findByIdForOrgAdmin`
+  enumerate every field the edit form needs. Adding a column to `schema.prisma` is not enough —
+  a missing entry means the form silently reads the default and paints over the stored value.
+- **Import paths that only the bundler checks.** `tsconfig` maps `@calcom/ui/*` onto source, but
+  Turbopack honours the package `exports` map. A deep path such as
+  `@calcom/ui/components/form/inputs/TextField` type-checks and fails the build. Check
+  `packages/ui/package.json` `exports`, not the filesystem. A missing import (`classNames`) is
+  likewise a build error, never a type error.
+- **`packages/trpc` declarations are generated.** `packages/trpc/react/trpc.ts` imports
+  `AppRouter` from the built `types/` directory, so adding a router or an input field needs
+  `yarn workspace @calcom/trpc run build`. If that build no-ops, delete
+  `packages/trpc/tsconfig.server.build.tsbuildinfo` — a stale cache makes it silently do nothing.
+- **Regenerating Prisma during a type check.** Running `yarn prisma generate` while `tsc` is
+  running produces phantom errors in unrelated files. Let one finish first.
+- **Timezones.** A rule expressed in an organiser's schedule must be resolved in that schedule's
+  timezone, never the server's or the booker's. Prisma returns `@db.Time` pinned to
+  1970-01-01 UTC, so the wall clock lives in the UTC accessors; `@db.Date` compares on its UTC
+  calendar date. `*.timezone.test.ts` files are re-run under several `TZ` values — put anything
+  zone-sensitive there.
+- **An event type usually has no schedule of its own.** `eventType.scheduleId` is commonly null
+  and the owner's `defaultScheduleId` applies. Reading the `schedule` relation alone resolves
+  nothing for those event types while looking entirely correct.
+- **Empty strings are not null.** A `""` address reaching a matcher that branches on
+  `!== null` compares an empty string against a real value and fails. Normalise to null on write.
+
 ## Boundaries
 
 ### Always do
