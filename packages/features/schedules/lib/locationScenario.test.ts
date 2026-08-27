@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { matchScheduleLocation } from "./matchScheduleLocation";
-import { resolveLocation, type LocationRule } from "./resolveLocation";
+import { type LocationRule, resolveLocation } from "./resolveLocation";
 
 /**
  * A worked example of the pattern this feature was built for: in an office three weekdays a
@@ -20,10 +20,46 @@ const eventTypeLocations = [
   { type: "inPerson", address: "4030 W Boy Scout Blvd Ste 500, Tampa, FL 33607" },
 ];
 const rules: LocationRule[] = [
-  { id: 11, position: 0, date: null, days: [2], startTime: null, endTime: null, locked: false, scheduleLocationId: 1 },
-  { id: 12, position: 1, date: null, days: [3], startTime: null, endTime: null, locked: false, scheduleLocationId: 1 },
-  { id: 13, position: 2, date: null, days: [4], startTime: null, endTime: null, locked: false, scheduleLocationId: 1 },
-  { id: 14, position: 3, date: null, days: [5], startTime: null, endTime: null, locked: true,  scheduleLocationId: 2 },
+  {
+    id: 11,
+    position: 0,
+    date: null,
+    days: [2],
+    startTime: null,
+    endTime: null,
+    locked: false,
+    scheduleLocationId: 1,
+  },
+  {
+    id: 12,
+    position: 1,
+    date: null,
+    days: [3],
+    startTime: null,
+    endTime: null,
+    locked: false,
+    scheduleLocationId: 1,
+  },
+  {
+    id: 13,
+    position: 2,
+    date: null,
+    days: [4],
+    startTime: null,
+    endTime: null,
+    locked: false,
+    scheduleLocationId: 1,
+  },
+  {
+    id: 14,
+    position: 3,
+    date: null,
+    days: [5],
+    startTime: null,
+    endTime: null,
+    locked: true,
+    scheduleLocationId: 2,
+  },
 ];
 const TZ = "America/New_York";
 

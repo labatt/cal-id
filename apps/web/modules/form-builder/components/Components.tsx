@@ -1,25 +1,24 @@
-import { useEffect } from "react";
-import type { z } from "zod";
-
+import { propsTypes } from "@calcom/features/form-builder/propsTypes";
+import { preprocessNameFieldDataWithVariant } from "@calcom/features/form-builder/utils";
 import type {
   SelectLikeComponentProps,
   TextLikeComponentProps,
 } from "@calcom/features/form-builder/widget-types";
 import Widgets from "@calcom/features/form-builder/widgets";
-import PhoneInput from "@calcom/web/components/phone-input";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
-import type { fieldSchema, variantsConfigSchema, FieldType } from "@calcom/prisma/zod-utils";
+import type { FieldType, fieldSchema, variantsConfigSchema } from "@calcom/prisma/zod-utils";
+import classNames from "@calcom/ui/classNames";
 import { AddressInput } from "@calcom/ui/components/address";
 import { InfoBadge } from "@calcom/ui/components/badge";
 import { Button } from "@calcom/ui/components/button";
-import { Label, CheckboxField, EmailField, InputField, Checkbox } from "@calcom/ui/components/form";
-import { RadioGroup, RadioField } from "@calcom/ui/components/radio";
+import { Checkbox, CheckboxField, EmailField, InputField, Label } from "@calcom/ui/components/form";
+import { RadioField, RadioGroup } from "@calcom/ui/components/radio";
 import { Tooltip } from "@calcom/ui/components/tooltip";
+import PhoneInput from "@calcom/web/components/phone-input";
 import { XIcon } from "@coss/ui/icons";
-
+import { useEffect } from "react";
+import type { z } from "zod";
 import { ComponentForField } from "./FormBuilderField";
-import { propsTypes } from "@calcom/features/form-builder/propsTypes";
-import { preprocessNameFieldDataWithVariant } from "@calcom/features/form-builder/utils";
 
 export const isValidValueProp: Record<Component["propsType"], (val: unknown) => boolean> = {
   boolean: (val) => typeof val === "boolean",
@@ -444,10 +443,35 @@ export const Components: Record<FieldType, Component> = {
         <div>
           <div>
             <div className="mb-2">
+              {readOnly && options.length > 1 ? (
+                <p className="text-subtle mb-2 text-sm" data-testid="location-locked-note">
+                  {t("location_set_by_host")}
+                </p>
+              ) : null}
               {options.length > 1 ? (
                 options.map((option, i) => {
+                  const isSelected = value?.value === option.value;
                   return (
-                    <label key={i} className="mb-1 flex items-center">
+                    <label
+                      key={i}
+                      data-selected={isSelected}
+                      className={classNames(
+                        "mb-1.5 flex items-center rounded-md border px-3 py-2 transition",
+                        // A radio dot alone is far too quiet a signal for something as
+                        // consequential as where a meeting happens, so the whole row carries
+                        // the selection.
+                        isSelected
+                          ? "border-brand-default bg-subtle text-emphasis font-medium"
+                          : "border-subtle text-default",
+                        readOnly
+                          ? // Not merely greyed: an unexplained disabled control reads as a
+                            // bug or a half-loaded page rather than a deliberate choice by
+                            // the host. The unselected rows recede, the selected one does not.
+                            isSelected
+                            ? "cursor-default"
+                            : "cursor-default opacity-50"
+                          : "hover:border-emphasis cursor-pointer"
+                      )}>
                       <input
                         type="radio"
                         disabled={readOnly}
@@ -460,7 +484,7 @@ export const Components: Record<FieldType, Component> = {
                             optionValue: "",
                           });
                         }}
-                        checked={value?.value === option.value}
+                        checked={isSelected}
                       />
                       <span className="text-emphasis me-2 ms-2 text-sm">
                         {option.value === "somewhereElse"

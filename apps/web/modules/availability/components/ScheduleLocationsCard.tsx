@@ -28,11 +28,18 @@ const LOCATION_TYPE_OPTIONS = [
 type NewLocationDraft = {
   label: string;
   shortCode: string;
+  compactCode: string;
   type: string;
   address: string;
 };
 
-const EMPTY_DRAFT: NewLocationDraft = { label: "", shortCode: "", type: "inPerson", address: "" };
+const EMPTY_DRAFT: NewLocationDraft = {
+  label: "",
+  shortCode: "",
+  compactCode: "",
+  type: "inPerson",
+  address: "",
+};
 
 export const ScheduleLocationsCard = ({ scheduleId }: { scheduleId: number }) => {
   const { t } = useLocale();
@@ -257,6 +264,14 @@ export const ScheduleLocationsCard = ({ scheduleId }: { scheduleId: number }) =>
                 placeholder="TPA"
                 onChange={(event) => setDraft({ ...draft, shortCode: event.target.value })}
               />
+              <TextField
+                label={t("compact_code")}
+                value={draft.compactCode}
+                maxLength={2}
+                placeholder={draft.shortCode.slice(0, 2).toUpperCase() || "TP"}
+                hint={t("compact_code_hint")}
+                onChange={(event) => setDraft({ ...draft, compactCode: event.target.value })}
+              />
             </div>
             <div className="mt-2">
               <label className="text-emphasis mb-1 block text-sm font-medium" htmlFor="location-type">
@@ -292,6 +307,7 @@ export const ScheduleLocationsCard = ({ scheduleId }: { scheduleId: number }) =>
                     scheduleId,
                     label: draft.label,
                     shortCode: draft.shortCode,
+                    compactCode: draft.compactCode.trim() || null,
                     type: draft.type,
                     address: draft.type === "inPerson" ? draft.address.trim() || null : null,
                   })

@@ -32,6 +32,7 @@ describe("ScheduleLocationService", () => {
       id: 1,
       label: "Tampa",
       shortCode: "TPA",
+      compactCode: "TP",
       type: "inPerson",
       address: null,
       credentialId: null,
@@ -111,6 +112,43 @@ describe("ScheduleLocationService", () => {
           label: "  ",
           shortCode: "TPA",
           type: "inPerson",
+        })
+      ).rejects.toMatchObject({ code: ErrorCode.BadRequest });
+    });
+
+    it("defaults the compact code to the first two characters of the short code", async () => {
+      await build().createLocation({
+        scheduleId: 1,
+        userId: OWNER,
+        label: "Tampa",
+        shortCode: "TPA",
+        type: "inPerson",
+      });
+      expect(repo.createLocation).toHaveBeenCalledWith(expect.objectContaining({ compactCode: "TP" }));
+    });
+
+    it("keeps an author-supplied compact code that is not a prefix", async () => {
+      // ZM is not the first two characters of ZOOM, which is the whole reason the field exists.
+      await build().createLocation({
+        scheduleId: 1,
+        userId: OWNER,
+        label: "Zoom",
+        shortCode: "ZOOM",
+        compactCode: "zm",
+        type: "integrations:zoom",
+      });
+      expect(repo.createLocation).toHaveBeenCalledWith(expect.objectContaining({ compactCode: "ZM" }));
+    });
+
+    it("rejects a compact code longer than two characters", async () => {
+      await expect(
+        build().createLocation({
+          scheduleId: 1,
+          userId: OWNER,
+          label: "Zoom",
+          shortCode: "ZOOM",
+          compactCode: "ZOOM",
+          type: "integrations:zoom",
         })
       ).rejects.toMatchObject({ code: ErrorCode.BadRequest });
     });

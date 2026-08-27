@@ -104,9 +104,9 @@
       "title": "Location markers on the booking page",
       "summary": "Show which days are which location before a booker commits to a slot — short code on the day cell, per-slot codes on mixed days, and a legend.",
       "affects": "apps/web/modules/bookings/components/, apps/web/styles/broadsheet.css",
-      "status": "queued",
+      "status": "done",
       "section": "Location-aware bookings",
-      "notes": "Design settled by mockup. Marking only the exception rather than every day: it drops a month from 15 marks to 3, and changes the encoding from hue to presence, which survives greyscale and colour blindness. The first version used two coloured dots, which spent the page's second accent a dozen times a month when the whole point of that accent is that it appears once — and left colour as the only signal."
+      "notes": "Design settled by mockup. Marking only the exception rather than every day: it drops a month from 15 marks to 3, and changes the encoding from hue to presence, which survives greyscale and colour blindness. The first version used two coloured dots, which spent the page's second accent a dozen times a month when the whole point of that accent is that it appears once — and left colour as the only signal. SHIPPED AND SEEN: codes render on the right days — TPA on Tue-Thu, ZOOM on Fri — with a legend beneath, verified by screenshot rather than by reading the diff. Each cell is converted into the schedule's timezone before resolving, so the grid marks the organiser's days rather than the booker's. Days whose morning and afternoon differ show ·· instead of a misleading single code. Also fixed a collision the measurements implied but could not be observed: today's dot sits at top-1/2 plus 8px and the badge at bottom-2px, which overlap in a phone-sized cell whenever today is bookable. Today happened to be unbookable, so no screenshot could show it; the dot is now lifted only when a badge is present."
     },
     {
       "id": 13,
@@ -142,6 +142,24 @@
       "status": "done",
       "section": "Location-aware bookings",
       "notes": "Self-inflicted and predictable. The location field carries hideWhenJustOneOption, and the responses schema does hidden = hidden || numOptions <= 1, so narrowing a locked day to a single option hides the field completely. The value was still set, so the booking would have come out as Zoom — the booker simply never saw it. I had read that exact flag while deciding the value must be set rather than defaulted, and then filtered to one option anyway. Reported from mobile, but it is not mobile-specific. Fixed by making the field read-only instead of narrowing its options, so it renders with the value set but unchangeable. Driving the real page then exposed a second bug nobody had reported: unlocked days never applied their default at all. The form pre-selects the first configured location, which happened to be Zoom, and a pre-filled value is indistinguishable from a booker's choice — so the \"only if empty\" guard skipped every time. Now applied once per slot, so changing day re-applies that day's location while a later manual change survives. VERIFIED IN A BROWSER: Friday resolves to integrations:zoom with every radio disabled; Tuesday resolves to inPerson and stays editable."
+    },
+    {
+      "id": 17,
+      "title": "Make the picked location obvious, and locked ones obviously deliberate",
+      "summary": "On the details form the selected location barely differs from the unselected ones, and a disabled option looks broken rather than intentionally fixed.",
+      "affects": "apps/web/modules/bookings/components/BookEventForm/, form-builder radio rendering",
+      "status": "done",
+      "section": "Location-aware bookings",
+      "notes": "Reported after the read-only fix landed. Making the field read-only solved 'no location shown' but created a subtler problem: a greyed-out radio group reads as a bug or a loading state, not as the host having fixed the location on purpose. Being unable to choose has to look deliberate, and the choice that was made has to be legible at a glance. Shipped alongside the markers; the selected row now carries a border, background and weight rather than only a radio dot, and a locked field explains itself in words instead of appearing broken."
+    },
+    {
+      "id": 18,
+      "title": "Separate day-cell codes for phone and larger screens",
+      "summary": "Show a fuller code such as ZOOM where there is room, and a two-character one such as ZM on a phone.",
+      "affects": "packages/prisma/schema.prisma, ScheduleLocation editor, public endpoint, day cell",
+      "status": "done",
+      "section": "Location-aware bookings",
+      "notes": "Cannot be derived: truncating ZOOM to two characters gives ZO, not ZM, so the short form has to be author-supplied. Stored as a nullable column defaulting to the first two characters of the main code, so existing locations keep working untouched and only a location whose abbreviation is unobvious needs a value typed. VERIFIED: 390px renders TP/ZO and 900px renders TPA/ZOOM, switched by CSS breakpoint rather than by measuring in JavaScript. Worth recording that ZOOM did in fact fit even at 320px — 33px of badge in a 37px cell — so this was legibility rather than overflow."
     }
   ]
 }

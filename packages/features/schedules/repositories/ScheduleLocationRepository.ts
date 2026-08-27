@@ -3,7 +3,11 @@ import type { Prisma } from "@calcom/prisma/client";
 import type { ScheduleLocationLike } from "../lib/matchScheduleLocation";
 import type { LocationRule } from "../lib/resolveLocation";
 
-export type ScheduleLocationRow = ScheduleLocationLike & { label: string; shortCode: string };
+export type ScheduleLocationRow = ScheduleLocationLike & {
+  label: string;
+  shortCode: string;
+  compactCode: string | null;
+};
 
 export class ScheduleLocationRepository {
   static async findLocationsByScheduleId({
@@ -17,6 +21,7 @@ export class ScheduleLocationRepository {
         id: true,
         label: true,
         shortCode: true,
+        compactCode: true,
         type: true,
         address: true,
         credentialId: true,
@@ -69,6 +74,7 @@ export class ScheduleLocationRepository {
     scheduleId,
     label,
     shortCode,
+    compactCode,
     type,
     address,
     credentialId,
@@ -76,13 +82,22 @@ export class ScheduleLocationRepository {
     scheduleId: number;
     label: string;
     shortCode: string;
+    compactCode: string | null;
     type: string;
     address: string | null;
     credentialId: number | null;
   }): Promise<ScheduleLocationRow> {
     return prisma.scheduleLocation.create({
-      data: { scheduleId, label, shortCode, type, address, credentialId },
-      select: { id: true, label: true, shortCode: true, type: true, address: true, credentialId: true },
+      data: { scheduleId, label, shortCode, compactCode, type, address, credentialId },
+      select: {
+        id: true,
+        label: true,
+        shortCode: true,
+        compactCode: true,
+        type: true,
+        address: true,
+        credentialId: true,
+      },
     });
   }
 

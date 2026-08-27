@@ -1,18 +1,17 @@
-import { shallow } from "zustand/shallow";
-
 import type { Dayjs } from "@calcom/dayjs";
 import dayjs from "@calcom/dayjs";
+import { useSlotsViewOnSmallScreen } from "@calcom/embed-core/embed-iframe";
 import { useBookerStoreContext } from "@calcom/features/bookings/Booker/BookerStoreProvider";
 import type { DatePickerClassNames } from "@calcom/features/bookings/Booker/types";
+import type { Slots } from "@calcom/features/bookings/types";
 import { DatePicker as DatePickerComponent } from "@calcom/features/calendars/components/DatePicker";
-import { useNonEmptyScheduleDays } from "@calcom/web/modules/schedules/hooks/useNonEmptyScheduleDays";
 import { weekdayToWeekIndex } from "@calcom/lib/dayjs";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import type { User } from "@calcom/prisma/client";
 import type { PeriodData } from "@calcom/types/Event";
-import { useSlotsViewOnSmallScreen } from "@calcom/embed-core/embed-iframe";
-
-import type { Slots } from "@calcom/features/bookings/types";
+import { useNonEmptyScheduleDays } from "@calcom/web/modules/schedules/hooks/useNonEmptyScheduleDays";
+import { shallow } from "zustand/shallow";
+import { useScheduleDayBadges } from "./useScheduleDayBadges";
 
 const useMoveToNextMonthOnNoAvailability = ({
   browsingDate,
@@ -129,43 +128,62 @@ export const DatePicker = ({
       periodCountCalendarDays: event.data.periodCountCalendarDays,
     }),
   };
+  const { getDayBadge, legend, hasAny } = useScheduleDayBadges();
+
   return (
-    <DatePickerComponent
-      customClassNames={{
-        datePickerTitle: classNames?.datePickerTitle,
-        datePickerDays: classNames?.datePickerDays,
-        datePickersDates: classNames?.datePickerDate,
-        datePickerDatesActive: classNames?.datePickerDatesActive,
-        datePickerToggle: classNames?.datePickerToggle,
-      }}
-      className={classNames?.datePickerContainer}
-      isLoading={isLoading}
-      onChange={(date: Dayjs | null, omitUpdatingParams?: boolean) => {
-        const newDate = date === null ? null : date.format("YYYY-MM-DD");
-        const previousDate = selectedDate;
-        const dateChanged = newDate !== previousDate;
+    <>
+      <DatePickerComponent
+        customClassNames={{
+          datePickerTitle: classNames?.datePickerTitle,
+          datePickerDays: classNames?.datePickerDays,
+          datePickersDates: classNames?.datePickerDate,
+          datePickerDatesActive: classNames?.datePickerDatesActive,
+          datePickerToggle: classNames?.datePickerToggle,
+        }}
+        className={classNames?.datePickerContainer}
+        isLoading={isLoading}
+        onChange={(date: Dayjs | null, omitUpdatingParams?: boolean) => {
+          const newDate = date === null ? null : date.format("YYYY-MM-DD");
+          const previousDate = selectedDate;
+          const dateChanged = newDate !== previousDate;
 
-        setSelectedDate({
-          date: date === null ? null : date.format("YYYY-MM-DD"),
-          omitUpdatingParams,
-          preventMonthSwitching: !isCompact, // Prevent month switching when in monthly view
-        });
+          setSelectedDate({
+            date: date === null ? null : date.format("YYYY-MM-DD"),
+            omitUpdatingParams,
+            preventMonthSwitching: !isCompact, // Prevent month switching when in monthly view
+          });
 
-        if (dateChanged) {
-          onDateChange?.();
-        }
-      }}
-      onMonthChange={onMonthChange}
-      includedDates={nonEmptyScheduleDays}
-      locale={i18n.language}
-      browsingDate={month ? dayjs(month) : undefined}
-      selected={dayjs(selectedDate)}
-      weekStart={weekdayToWeekIndex(event?.data?.subsetOfUsers?.[0]?.weekStart)}
-      slots={slots}
-      scrollToTimeSlots={scrollToTimeSlots}
-      periodData={periodData}
-      isCompact={isCompact}
-      showNoAvailabilityDialog={showNoAvailabilityDialog}
-    />
+          if (dateChanged) {
+            onDateChange?.();
+          }
+        }}
+        onMonthChange={onMonthChange}
+        includedDates={nonEmptyScheduleDays}
+        locale={i18n.language}
+        browsingDate={month ? dayjs(month) : undefined}
+        selected={dayjs(selectedDate)}
+        weekStart={weekdayToWeekIndex(event?.data?.subsetOfUsers?.[0]?.weekStart)}
+        slots={slots}
+        scrollToTimeSlots={scrollToTimeSlots}
+        periodData={periodData}
+        isCompact={isCompact}
+        showNoAvailabilityDialog={showNoAvailabilityDialog}
+        getDayBadge={getDayBadge}
+      />
+      {/* A legend only when something is actually marked, so an event type without location
+        rules gains no extra furniture. */}
+      {hasAny && legend.length > 0 ? (
+        <div
+          className="text-subtle mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs"
+          data-testid="location-legend">
+          {legend.map((entry) => (
+            <span key={entry.shortCode} className="flex items-center gap-1.5">
+              <span className="font-bold uppercase tracking-wide">{entry.shortCode}</span>
+              <span>{entry.label}</span>
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </>
   );
 };

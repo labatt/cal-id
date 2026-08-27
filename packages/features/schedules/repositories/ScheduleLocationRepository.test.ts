@@ -45,6 +45,7 @@ describe("ScheduleLocationRepository", () => {
       expect(arg).not.toHaveProperty("include");
       expect(Object.keys(arg.select ?? {}).sort()).toEqual([
         "address",
+        "compactCode",
         "credentialId",
         "id",
         "label",

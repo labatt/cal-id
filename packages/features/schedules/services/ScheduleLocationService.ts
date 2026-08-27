@@ -3,6 +3,7 @@ import type { LocationRule } from "../lib/resolveLocation";
 import type { ScheduleLocationRow } from "../repositories/ScheduleLocationRepository";
 
 const SHORT_CODE_MAX_LENGTH = 4;
+const COMPACT_CODE_MAX_LENGTH = 2;
 const MINUTES_PER_DAY = 24 * 60;
 
 export type RecurringRuleInput = {
@@ -24,6 +25,7 @@ export interface IScheduleLocationRepository {
     scheduleId: number;
     label: string;
     shortCode: string;
+    compactCode: string | null;
     type: string;
     address: string | null;
     credentialId: number | null;
@@ -77,6 +79,7 @@ export class ScheduleLocationService {
     userId,
     label,
     shortCode,
+    compactCode = null,
     type,
     address = null,
     credentialId = null,
@@ -85,6 +88,7 @@ export class ScheduleLocationService {
     userId: number;
     label: string;
     shortCode: string;
+    compactCode?: string | null;
     type: string;
     address?: string | null;
     credentialId?: number | null;
@@ -109,10 +113,23 @@ export class ScheduleLocationService {
       throw ErrorWithCode.Factory.BadRequest(`Short code ${normalisedCode} is already used on this schedule`);
     }
 
+    /**
+     * Defaults to the first two characters, which is right for TPA and wrong for ZOOM — ZM is
+     * not a prefix of it. So it is only a default, and a location whose abbreviation is not
+     * its opening letters needs one typed.
+     */
+    const normalisedCompact = (compactCode ?? "").trim().toUpperCase() || normalisedCode.slice(0, 2);
+    if (normalisedCompact.length > COMPACT_CODE_MAX_LENGTH) {
+      throw ErrorWithCode.Factory.BadRequest(
+        `A compact code must be 1-${COMPACT_CODE_MAX_LENGTH} characters`
+      );
+    }
+
     return this.deps.scheduleLocationRepo.createLocation({
       scheduleId,
       label: trimmedLabel,
       shortCode: normalisedCode,
+      compactCode: normalisedCompact,
       type,
       address,
       credentialId,

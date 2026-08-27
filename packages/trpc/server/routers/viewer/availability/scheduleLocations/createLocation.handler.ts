@@ -13,6 +13,7 @@ export const createLocationHandler = async ({ ctx, input }: CreateLocationOption
     userId: ctx.user.id,
     label: input.label,
     shortCode: input.shortCode,
+    compactCode: input.compactCode ?? null,
     type: input.type,
     address: input.address ?? null,
     credentialId: input.credentialId ?? null,

@@ -1,9 +1,6 @@
-import { useEffect } from "react";
-import { shallow } from "zustand/shallow";
-
 import type { Dayjs } from "@calcom/dayjs";
 import dayjs from "@calcom/dayjs";
-import { useEmbedStyles } from "@calcom/embed-core/embed-iframe";
+import { useEmbedStyles, useSlotsViewOnSmallScreen } from "@calcom/embed-core/embed-iframe";
 import { useBookerStoreContext } from "@calcom/features/bookings/Booker/BookerStoreProvider";
 import { getAvailableDatesInMonth } from "@calcom/features/calendars/lib/getAvailableDatesInMonth";
 import type { Slots } from "@calcom/features/calendars/lib/types";
@@ -15,9 +12,9 @@ import classNames from "@calcom/ui/classNames";
 import { Button } from "@calcom/ui/components/button";
 import { SkeletonText } from "@calcom/ui/components/skeleton";
 import { Tooltip } from "@calcom/ui/components/tooltip";
-
+import { useEffect } from "react";
+import { shallow } from "zustand/shallow";
 import NoAvailabilityDialog from "./NoAvailabilityDialog";
-import { useSlotsViewOnSmallScreen } from "@calcom/embed-core/embed-iframe";
 
 export type DatePickerProps = {
   /** which day of the week to render the calendar. Usually Sunday (=0) or Monday (=1) - default: Sunday */
@@ -62,12 +59,15 @@ const Day = ({
   customClassName,
   showMonthTooltip,
   isFirstDayOfNextMonth,
+  badge,
   ...props
 }: JSX.IntrinsicElements["button"] & {
   active: boolean;
   date: Dayjs;
   away?: boolean;
   emoji?: string | null;
+  /** Short marker drawn on the cell, e.g. a location code. */
+  badge?: { text: string; compactText?: string; title?: string } | null;
   customClassName?: {
     dayContainer?: string;
     dayActive?: string;
@@ -104,12 +104,35 @@ const Day = ({
       {date.isToday() && (
         <span
           className={classNames(
-            "bg-brand-default absolute left-1/2 top-1/2 flex h-[5px] w-[5px] -translate-x-1/2 translate-y-[8px] items-center justify-center rounded-full align-middle sm:translate-y-[12px]",
+            "bg-brand-default absolute left-1/2 top-1/2 flex h-[5px] w-[5px] -translate-x-1/2 items-center justify-center rounded-full align-middle",
+            // The badge occupies the bottom of the cell, and on a phone-sized cell the dot's
+            // usual offset lands on top of it. Lifted only when a badge is actually there, so
+            // every other calendar keeps the spacing it had.
+            badge
+              ? "translate-y-[2px] sm:translate-y-[6px]"
+              : "translate-y-[8px] sm:translate-y-[12px]",
             active && "bg-brand-accent"
           )}>
           <span className="sr-only">{t("today")}</span>
         </span>
       )}
+      {badge && !away ? (
+        // Text rather than colour: a coloured dot alone is unreadable in greyscale and to a
+        // sizeable minority of people, and the whole point of this marker is to say which
+        // place it is, not merely that the days differ.
+        <span
+          aria-label={badge.title ?? badge.text}
+          className={classNames(
+            "pointer-events-none absolute inset-x-0 bottom-[2px] text-[8px] font-bold uppercase leading-none tracking-wide",
+            active ? "text-brand" : "text-subtle"
+          )}>
+          {/* Both forms are rendered and chosen by breakpoint rather than by measuring in
+              JavaScript: a measured switch flickers on first paint and gets server rendering
+              wrong, and this has to be correct immediately. */}
+          <span className="sm:hidden">{badge.compactText ?? badge.text}</span>
+          <span className="hidden sm:inline">{badge.text}</span>
+        </span>
+      ) : null}
     </button>
   );
 
@@ -147,6 +170,7 @@ const Days = ({
   browsingDate,
   weekStart,
   DayComponent = Day,
+  getDayBadge,
   selected,
   month,
   nextMonthButton,
@@ -160,6 +184,11 @@ const Days = ({
   ...props
 }: Omit<DatePickerProps, "locale" | "className" | "weekStart"> & {
   DayComponent?: React.FC<React.ComponentProps<typeof Day>>;
+  /**
+   * Draws a short marker on each day. A function rather than a map so the caller decides how
+   * a date is resolved — this component knows nothing about what the marker means.
+   */
+  getDayBadge?: (date: Dayjs) => { text: string; compactText?: string; title?: string } | null;
   browsingDate: Dayjs;
   weekStart: number;
   month: string | null;
@@ -343,6 +372,7 @@ const Days = ({
               emoji={emoji}
               showMonthTooltip={showNextMonthDays && !disabled && day.month() !== browsingDate.month()}
               isFirstDayOfNextMonth={isFirstDayOfNextMonth}
+              badge={disabled ? null : (getDayBadge?.(day) ?? null)}
             />
           )}
         </div>

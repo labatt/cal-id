@@ -991,6 +991,9 @@ model ScheduleLocation {
   label        String
   /// Short marker shown on booking-page day cells and time slots, e.g. "TPA".
   shortCode    String
+  /// Even shorter marker for phone-width day cells, e.g. "ZM" for a shortCode of "ZOOM".
+  /// Null falls back to the first two characters, which is right for TPA but not for ZOOM.
+  compactCode  String?
   type         String
   address      String?
   /// SetNull rather than Cascade: losing a Zoom credential must not delete the travel

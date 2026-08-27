@@ -8,7 +8,7 @@ type Options = { input: TScheduleLocationsInputSchema };
 
 export type PublicScheduleLocations = {
   timeZone: string;
-  locations: { id: number; shortCode: string; label: string; locationType: string }[];
+  locations: { id: number; shortCode: string; compactCode: string; label: string; locationType: string }[];
   rules: LocationRule[];
 };
 
@@ -49,7 +49,15 @@ const handler = async ({ input }: Options): Promise<PublicScheduleLocations | nu
     const match = matchScheduleLocation(location, context.locations as EventTypeLocationLike[]);
     if (!match) return [];
     return [
-      { id: location.id, shortCode: location.shortCode, label: location.label, locationType: match.type },
+      {
+        id: location.id,
+        shortCode: location.shortCode,
+        // Falls back here as well as on write, so rows created before this existed still get
+        // something sensible on a phone rather than an empty cell.
+        compactCode: location.compactCode || location.shortCode.slice(0, 2),
+        label: location.label,
+        locationType: match.type,
+      },
     ];
   });
 
