@@ -177,6 +177,22 @@
       "status": "done",
       "section": "Location-aware bookings",
       "notes": "Not a regression — editing was never built. ScheduleLocationRepository.updateLocation has existed since the first phase, with a test asserting it scopes writes by scheduleId, and nothing has ever called it. A tested method with no caller looked like coverage while the feature it implied was absent. It also made the earlier data problems worse than they needed to be: correcting a location typed inPerson when it meant Zoom required editing the database directly, because the UI offered no way to fix it. Editing now reuses the same form, pre-filled, with the short-code clash check excluding the row being edited — otherwise saving without touching the code would report it as taken by itself. Empty addresses normalise to null on update as well as on create. The cost of the gap was sharper than it first looked: without editing, fixing a typo in a code meant deleting and recreating the location, and ScheduleLocationRule cascades on delete, so the whole weekday pattern would have gone with it. Endpoint verified mounted: it answers 401 while an invented name answers 404."
+    },
+    {
+      "id": 21,
+      "title": "Lead the README with what this fork adds",
+      "summary": "Move the differences from upstream to the top, so someone landing on the repo sees them first.",
+      "affects": "README.md",
+      "status": "done",
+      "notes": "A short table of what the fork adds now sits above the upstream warning banner, so it is the first thing on the page rather than buried under the upstream project description. The detail moved to its own section ahead of the deployment guide, leaving upstream's README untouched below it."
+    },
+    {
+      "id": 22,
+      "title": "Remove tracked files that should never have been committed",
+      "summary": "Editor and tooling artefacts are tracked in the repository and visible on the public fork.",
+      "affects": ".gitignore, tracked tooling files",
+      "status": "done",
+      "notes": "Most of what looked like junk was upstream's, not stray: .claude/settings.json, .cursor/* and .vscode/* are all committed by upstream contributors, and .claude/rules and .claude/skills are symlinks into agents/ — the directory holding the engineering rules this repo feeds to Claude and Cursor. Deleting them would have broken that wiring and guaranteed a conflict on every pull from upstream, so it was raised rather than done. What was genuinely wrong: two .tsbuildinfo files tracked in git. They are build caches, and a stale one silently turned the trpc build into a no-op earlier in this project, which cost an hour of chasing phantom type errors. Untracked and ignored."
     }
   ]
 }

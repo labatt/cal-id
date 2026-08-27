@@ -1,3 +1,24 @@
+# This fork
+
+**[labatt/cal-id](https://github.com/labatt/cal-id)** tracks
+[onehashai/cal-id](https://github.com/onehashai/Cal-ID) and adds the following. Everything is
+additive — no upstream feature is removed, and anything needing a schema column defaults to
+off, so an existing database behaves exactly as it did before.
+
+| | |
+| --- | --- |
+| **Location-aware scheduling** | A default meeting location per weekday, per-date overrides, and location codes on the booking calendar |
+| **Calendar reconnect** | Repair a revoked OAuth calendar in place, instead of removing and re-adding it |
+| **Broadsheet booking page** | A newsprint theme for month view, with duration promoted out of the sidebar |
+| **Maintenance error page** | A 5xx shows a friendly page rather than an exception dump |
+| **Deployment scripts** | `build.sh` and `ecosystem.config.js` for building and running under pm2 |
+| **Build status** | A `/roadmap` page recording what was asked for and what actually happened |
+
+Details of each are below, followed by a from-scratch deployment guide. Everything after that
+is upstream's own README, unchanged.
+
+---
+
 > [!WARNING]  
 > Use at your own risk. Cal.diy is the open source community edition of Cal.com and it is intended for users who want to self-host their own Cal.diy instance. It is strictly recommended for personal, non-production use. Please review all installation and configuration steps carefully. Self-hosting requires advanced knowledge of server administration, database management, and securing sensitive data. Proceed only if you are comfortable with these responsibilities.
 
@@ -51,7 +72,7 @@ Cal.diy is **100% MIT-licensed** with no proprietary "Enterprise Edition" featur
 
 > **Note:** Cal.diy is a self-hosted project. There is no hosted/managed version. You run it on your own infrastructure.
 
-### What's different in this fork?
+## What this fork adds, in detail
 
 This fork ([labatt/cal-id](https://github.com/labatt/cal-id)) tracks
 [onehashai/cal-id](https://github.com/onehashai/Cal-ID) and adds the following. Everything
