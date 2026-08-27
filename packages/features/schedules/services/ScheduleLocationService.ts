@@ -30,6 +30,18 @@ export interface IScheduleLocationRepository {
     address: string | null;
     credentialId: number | null;
   }): Promise<ScheduleLocationRow>;
+  updateLocation(args: {
+    id: number;
+    scheduleId: number;
+    data: {
+      label?: string;
+      shortCode?: string;
+      compactCode?: string | null;
+      type?: string;
+      address?: string | null;
+      credentialId?: number | null;
+    };
+  }): Promise<void>;
   deleteLocation(args: { id: number; scheduleId: number }): Promise<void>;
   findLocationByShortCode(args: { scheduleId: number; shortCode: string }): Promise<{ id: number } | null>;
   upsertDateRule(args: { scheduleId: number; scheduleLocationId: number; date: Date }): Promise<void>;
@@ -133,6 +145,67 @@ export class ScheduleLocationService {
       type,
       address,
       credentialId,
+    });
+  }
+
+  async updateLocation({
+    scheduleId,
+    userId,
+    locationId,
+    label,
+    shortCode,
+    compactCode,
+    type,
+    address,
+  }: {
+    scheduleId: number;
+    userId: number;
+    locationId: number;
+    label: string;
+    shortCode: string;
+    compactCode?: string | null;
+    type: string;
+    address?: string | null;
+  }): Promise<void> {
+    await this.assertOwnership(scheduleId, userId);
+
+    const trimmedLabel = label.trim();
+    if (!trimmedLabel) throw ErrorWithCode.Factory.BadRequest("A location needs a label");
+
+    const normalisedCode = shortCode.trim().toUpperCase();
+    if (!normalisedCode || normalisedCode.length > SHORT_CODE_MAX_LENGTH) {
+      throw ErrorWithCode.Factory.BadRequest(`A short code must be 1-${SHORT_CODE_MAX_LENGTH} characters`);
+    }
+
+    // The clash check has to exclude the row being edited, or saving a location without
+    // touching its code would report the code as taken by itself.
+    const clash = await this.deps.scheduleLocationRepo.findLocationByShortCode({
+      scheduleId,
+      shortCode: normalisedCode,
+    });
+    if (clash && clash.id !== locationId) {
+      throw ErrorWithCode.Factory.BadRequest(`Short code ${normalisedCode} is already used on this schedule`);
+    }
+
+    const normalisedCompact = (compactCode ?? "").trim().toUpperCase() || normalisedCode.slice(0, 2);
+    if (normalisedCompact.length > COMPACT_CODE_MAX_LENGTH) {
+      throw ErrorWithCode.Factory.BadRequest(
+        `A compact code must be 1-${COMPACT_CODE_MAX_LENGTH} characters`
+      );
+    }
+
+    await this.deps.scheduleLocationRepo.updateLocation({
+      id: locationId,
+      scheduleId,
+      data: {
+        label: trimmedLabel,
+        shortCode: normalisedCode,
+        compactCode: normalisedCompact,
+        type,
+        // Empty normalises to null here too: a "" address is not null, so it would take the
+        // address branch of matchScheduleLocation and match nothing at all.
+        address: (address ?? "").trim() || null,
+      },
     });
   }
 

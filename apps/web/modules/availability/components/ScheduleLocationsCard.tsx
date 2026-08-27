@@ -51,6 +51,7 @@ export const ScheduleLocationsCard = ({ scheduleId }: { scheduleId: number }) =>
   const [activeLocationId, setActiveLocationId] = useState<number | null>(null);
   const [draft, setDraft] = useState<NewLocationDraft>(EMPTY_DRAFT);
   const [isAdding, setIsAdding] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   const { data, isPending } = trpc.viewer.availability.scheduleLocations.list.useQuery({ scheduleId });
 
@@ -62,6 +63,17 @@ export const ScheduleLocationsCard = ({ scheduleId }: { scheduleId: number }) =>
       setDraft(EMPTY_DRAFT);
       setIsAdding(false);
       setActiveLocationId(created.id);
+      await invalidate();
+    },
+    onError: (error) => showToast(error.message, "error"),
+  });
+
+  const updateLocation = trpc.viewer.availability.scheduleLocations.updateLocation.useMutation({
+    onSuccess: async () => {
+      showToast(t("location_updated"), "success");
+      setDraft(EMPTY_DRAFT);
+      setEditingId(null);
+      setIsAdding(false);
       await invalidate();
     },
     onError: (error) => showToast(error.message, "error"),
@@ -232,18 +244,38 @@ export const ScheduleLocationsCard = ({ scheduleId }: { scheduleId: number }) =>
                 <span className="text-emphasis text-sm">{location.label}</span>
                 {location.address ? <span className="text-subtle text-xs">{location.address}</span> : null}
               </button>
-              <Button
-                type="button"
-                variant="icon"
-                color="destructive"
-                StartIcon="trash"
-                disabled={deleteLocation.isPending}
-                aria-label={t("remove")}
-                onClick={() => {
-                  if (activeLocationId === location.id) setActiveLocationId(null);
-                  deleteLocation.mutate({ scheduleId, locationId: location.id });
-                }}
-              />
+              <span className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="icon"
+                  color="minimal"
+                  StartIcon="pencil"
+                  aria-label={t("edit")}
+                  onClick={() => {
+                    setEditingId(location.id);
+                    setIsAdding(true);
+                    setDraft({
+                      label: location.label,
+                      shortCode: location.shortCode,
+                      compactCode: location.compactCode ?? "",
+                      type: location.type,
+                      address: location.address ?? "",
+                    });
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="icon"
+                  color="destructive"
+                  StartIcon="trash"
+                  disabled={deleteLocation.isPending}
+                  aria-label={t("remove")}
+                  onClick={() => {
+                    if (activeLocationId === location.id) setActiveLocationId(null);
+                    deleteLocation.mutate({ scheduleId, locationId: location.id });
+                  }}
+                />
+              </span>
             </li>
           ))}
         </ul>
@@ -298,20 +330,26 @@ export const ScheduleLocationsCard = ({ scheduleId }: { scheduleId: number }) =>
                 type="button"
                 disabled={
                   createLocation.isPending ||
+                  updateLocation.isPending ||
                   !draft.label.trim() ||
                   !draft.shortCode.trim() ||
                   (draft.type === "inPerson" && !draft.address.trim())
                 }
-                onClick={() =>
-                  createLocation.mutate({
+                onClick={() => {
+                  const payload = {
                     scheduleId,
                     label: draft.label,
                     shortCode: draft.shortCode,
                     compactCode: draft.compactCode.trim() || null,
                     type: draft.type,
                     address: draft.type === "inPerson" ? draft.address.trim() || null : null,
-                  })
-                }>
+                  };
+                  if (editingId !== null) {
+                    updateLocation.mutate({ ...payload, locationId: editingId });
+                    return;
+                  }
+                  createLocation.mutate(payload);
+                }}>
                 {t("save")}
               </Button>
               <Button
@@ -319,6 +357,7 @@ export const ScheduleLocationsCard = ({ scheduleId }: { scheduleId: number }) =>
                 color="minimal"
                 onClick={() => {
                   setDraft(EMPTY_DRAFT);
+                  setEditingId(null);
                   setIsAdding(false);
                 }}>
                 {t("cancel")}
@@ -331,7 +370,11 @@ export const ScheduleLocationsCard = ({ scheduleId }: { scheduleId: number }) =>
             color="secondary"
             StartIcon="plus"
             className="mt-3"
-            onClick={() => setIsAdding(true)}>
+            onClick={() => {
+              setDraft(EMPTY_DRAFT);
+              setEditingId(null);
+              setIsAdding(true);
+            }}>
             {t("add_location")}
           </Button>
         )}

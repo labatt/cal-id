@@ -1235,6 +1235,7 @@
   "location_set_by_host": "The host has set the location for this day, so it can't be changed.",
   "compact_code": "Phone code",
   "compact_code_hint": "Two characters, used on narrow screens. Defaults to the first two of the short code.",
+  "location_updated": "Location updated",
   "where_youll_be": "Where you'll be",
   "where_youll_be_description": "Set a default location for each weekday beside its hours above, then override individual dates below.",
   "your_locations": "Your locations",

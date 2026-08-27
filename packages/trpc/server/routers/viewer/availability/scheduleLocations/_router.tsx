@@ -5,6 +5,7 @@ import { ZCreateLocationInputSchema } from "./createLocation.schema";
 import { ZDeleteLocationInputSchema } from "./deleteLocation.schema";
 import { ZListInputSchema } from "./list.schema";
 import { ZSetRecurringRulesInputSchema } from "./setRecurringRules.schema";
+import { ZUpdateLocationInputSchema } from "./updateLocation.schema";
 
 export const scheduleLocationsRouter = router({
   list: authedProcedure.input(ZListInputSchema).query(async ({ input, ctx }) => {
@@ -17,6 +18,12 @@ export const scheduleLocationsRouter = router({
     const { createLocationHandler } = await import("./createLocation.handler");
 
     return createLocationHandler({ ctx, input });
+  }),
+
+  updateLocation: authedProcedure.input(ZUpdateLocationInputSchema).mutation(async ({ input, ctx }) => {
+    const { updateLocationHandler } = await import("./updateLocation.handler");
+
+    return updateLocationHandler({ ctx, input });
   }),
 
   deleteLocation: authedProcedure.input(ZDeleteLocationInputSchema).mutation(async ({ input, ctx }) => {

@@ -160,6 +160,23 @@
       "status": "done",
       "section": "Location-aware bookings",
       "notes": "Cannot be derived: truncating ZOOM to two characters gives ZO, not ZM, so the short form has to be author-supplied. Stored as a nullable column defaulting to the first two characters of the main code, so existing locations keep working untouched and only a location whose abbreviation is unobvious needs a value typed. VERIFIED: 390px renders TP/ZO and 900px renders TPA/ZOOM, switched by CSS breakpoint rather than by measuring in JavaScript. Worth recording that ZOOM did in fact fit even at 320px — 33px of badge in a 37px cell — so this was legibility rather than overflow."
+    },
+    {
+      "id": 19,
+      "title": "Record what a green build does not prove, in CLAUDE.md",
+      "summary": "Write down the failure modes in this codebase that type-check and build cleanly while behaving wrongly.",
+      "affects": "CLAUDE.md",
+      "status": "done",
+      "notes": "Six defects in the location feature all passed tsc and the production build. Two were found by the owner using the page, the rest only once the browser was driven. The pattern is specific enough to this stack to be worth writing down rather than rediscovering. Written as a 'What a green build does not prove' section listing ten failure modes that compile and build cleanly in this stack, each one having cost real time in this project."
+    },
+    {
+      "id": 20,
+      "title": "Editing an existing schedule location",
+      "summary": "Locations can only be added and deleted; there is no way to correct a label, code, type or address.",
+      "affects": "ScheduleLocationService, tRPC scheduleLocations router, ScheduleLocationsCard",
+      "status": "done",
+      "section": "Location-aware bookings",
+      "notes": "Not a regression — editing was never built. ScheduleLocationRepository.updateLocation has existed since the first phase, with a test asserting it scopes writes by scheduleId, and nothing has ever called it. A tested method with no caller looked like coverage while the feature it implied was absent. It also made the earlier data problems worse than they needed to be: correcting a location typed inPerson when it meant Zoom required editing the database directly, because the UI offered no way to fix it. Editing now reuses the same form, pre-filled, with the short-code clash check excluding the row being edited — otherwise saving without touching the code would report it as taken by itself. Empty addresses normalise to null on update as well as on create. The cost of the gap was sharper than it first looked: without editing, fixing a typo in a code meant deleting and recreating the location, and ScheduleLocationRule cascades on delete, so the whole weekday pattern would have gone with it. Endpoint verified mounted: it answers 401 while an invented name answers 404."
     }
   ]
 }
