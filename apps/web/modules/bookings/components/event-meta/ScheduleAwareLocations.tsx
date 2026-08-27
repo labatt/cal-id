@@ -4,7 +4,6 @@ import type { LocationObject } from "@calcom/app-store/locations";
 import { useIsPlatform } from "@calcom/atoms/hooks/useIsPlatform";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { MapPinIcon } from "@coss/ui/icons";
-
 import { useSelectedDateLocation } from "../useScheduleDayBadges";
 import { AvailableEventLocations } from "./AvailableEventLocations";
 
