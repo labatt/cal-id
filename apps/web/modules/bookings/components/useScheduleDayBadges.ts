@@ -1,6 +1,7 @@
 "use client";
 
 import type { Dayjs } from "@calcom/dayjs";
+import dayjs from "@calcom/dayjs";
 import { useBookerStoreContext } from "@calcom/features/bookings/Booker/BookerStoreProvider";
 import { resolveLocationForDay } from "@calcom/features/schedules/lib/resolveLocationForDay";
 import { trpc } from "@calcom/trpc/react";
@@ -55,4 +56,38 @@ export const useScheduleDayBadges = (): ScheduleDayBadges => {
   const legend = (data?.locations ?? []).map((l) => ({ shortCode: l.shortCode, label: l.label }));
 
   return { getDayBadge, legend, hasAny: !!data && data.rules.length > 0 };
+};
+
+/**
+ * The location for the currently selected *date*, for the summary beside the calendar.
+ *
+ * Deliberately keyed on the date rather than the chosen timeslot: that row only exists while
+ * someone is still browsing days, and by the time a slot is picked the layout has replaced it
+ * with the booking form. A timeslot-based hook there resolves to null for the row's entire
+ * lifetime, which is exactly what the first attempt did.
+ */
+export const useSelectedDateLocation = (): { label: string; locked: boolean } | null => {
+  const eventId = useBookerStoreContext((state) => state.eventId);
+  const selectedDate = useBookerStoreContext((state) => state.selectedDate);
+
+  const { data } = trpc.viewer.public.scheduleLocations.useQuery(
+    { eventTypeId: eventId ?? 0 },
+    { enabled: !!eventId, staleTime: 5 * 60 * 1000 }
+  );
+
+  if (!data || !selectedDate) return null;
+
+  const local = dayjs.tz(selectedDate, data.timeZone);
+  if (!local.isValid()) return null;
+
+  const day = resolveLocationForDay({
+    rules: data.rules,
+    localDate: local.format("YYYY-MM-DD"),
+    localWeekday: local.day(),
+  });
+  if (!day) return null;
+  if (day.kind === "mixed") return { label: "More than one location that day", locked: false };
+
+  const location = data.locations.find((l) => l.id === day.scheduleLocationId);
+  return location ? { label: location.label, locked: day.locked } : null;
 };

@@ -23,9 +23,9 @@ import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { CURRENT_TIMEZONE } from "@calcom/lib/timezoneConstants";
 import dynamic from "next/dynamic";
 import { shallow } from "zustand/shallow";
-import { useScheduleLocation } from "./BookEventForm/useScheduleLocation";
 import { AvailableEventLocations } from "./event-meta/AvailableEventLocations";
 import { getDurationFormatted } from "./event-meta/Duration";
+import { useSelectedDateLocation } from "./useScheduleDayBadges";
 
 const TimezoneSelect = dynamic(
   () => import("@calcom/web/modules/timezone/components/TimezoneSelect").then((mod) => mod.TimezoneSelect),
@@ -55,7 +55,7 @@ export const BroadsheetMetaRows = ({
   const [setTimezone] = useTimePreferences((state) => [state.setTimezone]);
   const [setBookerStoreTimezone] = useBookerStoreContext((state) => [state.setTimezone], shallow);
   const selectedDuration = useBookerStoreContext((state) => state.selectedDuration);
-  const scheduleLocation = useScheduleLocation();
+  const scheduleLocation = useSelectedDateLocation();
 
   if (!event) return null;
 

@@ -193,6 +193,23 @@
       "affects": ".gitignore, tracked tooling files",
       "status": "done",
       "notes": "Most of what looked like junk was upstream's, not stray: .claude/settings.json, .cursor/* and .vscode/* are all committed by upstream contributors, and .claude/rules and .claude/skills are symlinks into agents/ — the directory holding the engineering rules this repo feeds to Claude and Cursor. Deleting them would have broken that wiring and guaranteed a conflict on every pull from upstream, so it was raised rather than done. What was genuinely wrong: two .tsbuildinfo files tracked in git. They are build caches, and a stale one silently turned the trpc build into a no-op earlier in this project, which cost an hour of chasing phantom type errors. Untracked and ignored."
+    },
+    {
+      "id": 23,
+      "title": "Make the Where row show the resolved location on desktop",
+      "summary": "The meta row was changed to state the resolved location, but it was never confirmed to render anywhere.",
+      "affects": "apps/web/modules/bookings/components/BroadsheetMetaRows.tsx",
+      "status": "done",
+      "section": "Location-aware bookings",
+      "notes": "The row was keyed on the chosen timeslot, but it only exists while someone is still browsing days — picking a slot swaps the layout to the booking form and removes the row. So its precondition and its lifetime never overlapped and it resolved to null for the row's entire existence, always showing the generic '2 location options'. Reported earlier as 'does not render on mobile', which was wrong: it renders on desktop, it simply never had anything to say. That came from inferring behaviour from one empty DOM query instead of checking both phases. Now keyed on the selected date, using the day-level resolver. Verified: Friday reads Zoom with 'Set by the host for this day', Tuesday reads Benchmark, Tampa."
+    },
+    {
+      "id": 24,
+      "title": "Screenshots in the README",
+      "summary": "Show the added features rather than only describing them.",
+      "affects": "README.md, docs/screenshots/",
+      "status": "working",
+      "notes": ""
     }
   ]
 }
