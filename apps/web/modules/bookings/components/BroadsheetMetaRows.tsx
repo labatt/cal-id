@@ -23,9 +23,8 @@ import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { CURRENT_TIMEZONE } from "@calcom/lib/timezoneConstants";
 import dynamic from "next/dynamic";
 import { shallow } from "zustand/shallow";
-import { AvailableEventLocations } from "./event-meta/AvailableEventLocations";
+import { ScheduleAwareLocations } from "./event-meta/ScheduleAwareLocations";
 import { getDurationFormatted } from "./event-meta/Duration";
-import { useSelectedDateLocation } from "./useScheduleDayBadges";
 
 const TimezoneSelect = dynamic(
   () => import("@calcom/web/modules/timezone/components/TimezoneSelect").then((mod) => mod.TimezoneSelect),
@@ -55,7 +54,6 @@ export const BroadsheetMetaRows = ({
   const [setTimezone] = useTimePreferences((state) => [state.setTimezone]);
   const [setBookerStoreTimezone] = useBookerStoreContext((state) => [state.setTimezone], shallow);
   const selectedDuration = useBookerStoreContext((state) => state.selectedDuration);
-  const scheduleLocation = useSelectedDateLocation();
 
   if (!event) return null;
 
@@ -80,20 +78,7 @@ export const BroadsheetMetaRows = ({
 
       {event.locations?.length ? (
         <Row label={t("where")}>
-          {/* Once a slot is picked the schedule decides where it is, so the resolved location
-              is stated outright. The radio field is hidden for a locked day — the location
-              field carries hideWhenJustOneOption, so narrowing to one option removes it — and
-              without this the booker would be told nothing at all. */}
-          {scheduleLocation ? (
-            <span className="flex flex-col">
-              <span>{scheduleLocation.label}</span>
-              {scheduleLocation.locked ? (
-                <span className="text-subtle text-xs">{t("location_fixed_for_this_day")}</span>
-              ) : null}
-            </span>
-          ) : (
-            <AvailableEventLocations locations={event.locations} />
-          )}
+          <ScheduleAwareLocations locations={event.locations} />
         </Row>
       ) : null}
 

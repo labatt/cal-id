@@ -8,7 +8,7 @@ import classNames from "@calcom/ui/classNames";
 import { Icon, type IconName } from "@calcom/ui/components/icon";
 import { PriceIcon } from "@calcom/web/modules/bookings/components/event-meta/PriceIcon";
 import React, { Fragment } from "react";
-import { AvailableEventLocations } from "./AvailableEventLocations";
+import { ScheduleAwareLocations } from "./ScheduleAwareLocations";
 import { EventDuration } from "./Duration";
 import { EventOccurences } from "./Occurences";
 
@@ -151,7 +151,7 @@ export const EventDetails = ({ event, blocks = defaultEventDetailsBlocks }: Even
             if (!event?.locations?.length || event.enablePerHostLocations) return null;
             return (
               <EventMetaBlock key={block}>
-                <AvailableEventLocations locations={event.locations} />
+                <ScheduleAwareLocations locations={event.locations} showIcon />
               </EventMetaBlock>
             );
 

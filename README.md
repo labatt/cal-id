@@ -17,6 +17,25 @@ off, so an existing database behaves exactly as it did before.
 Details of each are below, followed by a from-scratch deployment guide. Everything after that
 is upstream's own README, unchanged.
 
+### At a glance
+
+Set where you are on each weekday, beside that day's hours. The lock decides whether the
+booker gets a say: Thursday and Friday below are fixed, Monday to Wednesday are defaults the
+booker may change.
+
+![Default meeting location per weekday, with a lock toggle per day](./docs/screenshots/availability-weekday-defaults.png)
+
+The booking calendar then marks every day with its location code, with a legend underneath, so
+a booker knows where they are going before choosing a time rather than after.
+
+![Booking calendar with a location code on each day and a legend below](./docs/screenshots/booking-calendar-codes.png)
+
+On a locked day the location is stated and the alternatives are visibly unselectable, instead
+of silently disappearing.
+
+![Booking form showing the location fixed by the host](./docs/screenshots/booking-locked-location.png)
+
+
 ---
 
 > [!WARNING]  
@@ -110,6 +129,8 @@ metadata all reference it. The target credential travels in the OAuth state, whi
 composes, so the write is scoped by user and app id and refuses anything that is not the
 session user's.
 
+![The calendar credential menu offering Reconnect above Remove app](./docs/screenshots/calendar-reconnect.png)
+
 Currently offered for Google Calendar only, since it requires the app's callback to honour the
 reconnect state.
 
@@ -124,19 +145,32 @@ automatically.
 - Rules are evaluated in the **schedule's own timezone**. A Friday 10:00 slot in New York is
   already Saturday in Sydney; "Friday" means Friday where the organiser is.
 
+![The schedule locations editor: a location palette and a month calendar of per-date overrides](./docs/screenshots/availability-location-editor.png)
+
+Each location carries a short code for the calendar and a compact code for narrow screens, so
+a day cell reads `ZOOM` on a desktop and `ZM` on a phone rather than being truncated.
+
+![The booking page on a phone, showing compact location codes and the resolved location](./docs/screenshots/booking-mobile-codes.png)
+
 Adds two tables (`ScheduleLocation`, `ScheduleLocationRule`) and one column
 (`EventType.useScheduleLocations`, default `false`). See
 [`docs/superpowers/specs/2026-08-26-schedule-location-rules-design.md`](./docs/superpowers/specs/2026-08-26-schedule-location-rules-design.md).
 
-> **Status:** the editor and API are complete. Wiring resolution into the booking flow so
-> bookers see and get the resolved location is not done yet, so the rules are recorded but do
-> not yet change what a booker sees.
+Resolution is wired end to end: the booker sees the day's location on the calendar and in the
+booking form, and the booking endpoint re-resolves the rule server-side, so a crafted request
+cannot book a locked day at a different location than the one the host set.
 
 #### Maintenance page on server errors
 
 A 5xx now renders a short "we're under the weather" page with a retry, rather than an error
 name and a block of exception text. The detail is kept in a collapsed disclosure for support.
 Only 5xx is affected — a 404 is not an outage and keeps its own page.
+
+![The maintenance page: an unwell calendar mascot, a retry and a collapsed technical detail](./docs/screenshots/maintenance-page.png)
+
+The mascot is inline SVG drawn with `currentColor` rather than an image file, because this
+page renders on the error path — whatever would have served an image may be the thing that
+just failed.
 
 ### Deploying this fork on a fresh server
 
