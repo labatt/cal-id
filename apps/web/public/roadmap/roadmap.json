@@ -210,6 +210,14 @@
       "affects": "README.md, docs/screenshots/",
       "status": "done",
       "notes": "Seven screenshots, shot against a throwaway demo account rather than the real one so no name, photo or office address reaches a public repo. Every count in the database matched its pre-seed baseline after cleanup (users 1, event types 1, bookings 17, schedules 1, locations 2, rules 4).\n\nThe reconnect menu needed a revoked calendar grant to photograph and the real connection was not going to be broken to stage one. A credential on the demo user with a structurally valid but non-functional key reproduces the same failure path, which is how that shot exists; it was deleted immediately after.\n\nShooting the mobile page surfaced a second bug the desktop fix had not covered: the mobile layout renders a different component and still printed the generic '2 location options'. Fixed by moving the resolution into one component both layouts use."
+    },
+    {
+      "id": 25,
+      "title": "Show the location on each timeslot",
+      "summary": "Every time in the slot list carries its location code, so where a meeting will be is legible at the moment of choosing a time rather than only after. Slots where the booker still has a choice list every reachable location, slash separated.",
+      "affects": "packages/features/schedules/lib/resolveSlotLocationBadge.ts, apps/web/modules/bookings/components/AvailableTimes.tsx, apps/web/modules/bookings/components/useScheduleDayBadges.ts",
+      "status": "done",
+      "notes": "Resolution is per instant, not per day, which is the whole reason this surface can say something the day cell cannot: a day split between two locations resolves to a mixed marker on the calendar but to one correct answer per slot here.\n\nWhat counts as 'more than one location available' was genuinely ambiguous and was put to Chris rather than guessed, because the two readings differ on every Tampa day. Chosen: only a locked rule removes the choice, so only a locked rule shows a single code. An unlocked rule is a default, not a decision, so its slots list every location with the default leading.\n\nVerified in the browser rather than from a green build: Wednesday 9 September (unlocked Tampa) reads TPA / ZOOM on every slot, Friday 4 September (locked Zoom) reads ZOOM, and at phone width the same slots read TP/ZM with the full form present but hidden by breakpoint. The accessible name and tooltip carry the spelled-out label, so the marker is not code-only for a screen reader."
     }
   ]
 }

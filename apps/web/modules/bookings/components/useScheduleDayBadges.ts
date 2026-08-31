@@ -4,6 +4,10 @@ import type { Dayjs } from "@calcom/dayjs";
 import dayjs from "@calcom/dayjs";
 import { useBookerStoreContext } from "@calcom/features/bookings/Booker/BookerStoreProvider";
 import { resolveLocationForDay } from "@calcom/features/schedules/lib/resolveLocationForDay";
+import {
+  resolveSlotLocationBadge,
+  type SlotLocationBadge,
+} from "@calcom/features/schedules/lib/resolveSlotLocationBadge";
 import { trpc } from "@calcom/trpc/react";
 import { useCallback } from "react";
 
@@ -90,4 +94,34 @@ export const useSelectedDateLocation = (): { label: string; locked: boolean } | 
 
   const location = data.locations.find((l) => l.id === day.scheduleLocationId);
   return location ? { label: location.label, locked: day.locked } : null;
+};
+
+export type { SlotLocationBadge } from "@calcom/features/schedules/lib/resolveSlotLocationBadge";
+
+/**
+ * The location code for a single timeslot, for the slot list.
+ *
+ * All the judgement lives in resolveSlotLocationBadge, which is pure and unit tested; this
+ * only supplies it with the query's data and the schedule's timezone.
+ */
+export const useSlotLocationBadges = (): ((isoTime: string) => SlotLocationBadge | null) => {
+  const eventId = useBookerStoreContext((state) => state.eventId);
+
+  const { data } = trpc.viewer.public.scheduleLocations.useQuery(
+    { eventTypeId: eventId ?? 0 },
+    { enabled: !!eventId, staleTime: 5 * 60 * 1000 }
+  );
+
+  return useCallback(
+    (isoTime: string) => {
+      if (!data) return null;
+      return resolveSlotLocationBadge({
+        locations: data.locations,
+        rules: data.rules,
+        startTime: new Date(isoTime),
+        scheduleTimeZone: data.timeZone,
+      });
+    },
+    [data]
+  );
 };

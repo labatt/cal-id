@@ -22,6 +22,7 @@ import type { Slot } from "~/schedules/lib/types";
 import type { IUseBookingLoadingStates } from "../hooks/useBookings";
 import { OutOfOfficeInSlots } from "./OutOfOfficeInSlots";
 import { SeatsAvailabilityText } from "./SeatsAvailabilityText";
+import { type SlotLocationBadge, useSlotLocationBadges } from "./useScheduleDayBadges";
 
 type TOnTimeSelect = (
   time: string,
@@ -49,7 +50,7 @@ export type AvailableTimesProps = {
   // It is called when a slot is selected, but it is not a confirmation and a confirm button will be shown besides it.
   onTentativeTimeSelect?: TOnTentativeTimeSelect;
   unavailableTimeSlots?: string[];
-} & Omit<SlotItemProps, "slot">;
+} & Omit<SlotItemProps, "slot" | "locationBadge">;
 
 type SlotItemProps = {
   slot: Slot;
@@ -74,6 +75,7 @@ type SlotItemProps = {
   unavailableTimeSlots?: string[];
   confirmButtonDisabled?: boolean;
   handleSlotClick?: (slot: Slot, isOverlapping: boolean) => void;
+  locationBadge?: SlotLocationBadge | null;
 };
 
 const SlotItem = ({
@@ -95,6 +97,7 @@ const SlotItem = ({
   unavailableTimeSlots = [],
   confirmButtonDisabled,
   confirmStepClassNames,
+  locationBadge,
 }: SlotItemProps) => {
   const { t } = useLocale();
 
@@ -181,6 +184,20 @@ const SlotItem = ({
               />
             )}
             {computedDateWithUsersTimezone.format(timeFormat)}
+            {locationBadge ? (
+              // Text, not colour: the point is to say which place this is, and a colour alone
+              // carries nothing in greyscale or to anyone with a colour vision deficiency.
+              <span
+                aria-label={locationBadge.title}
+                title={locationBadge.title}
+                className="text-subtle text-[10px] font-bold uppercase leading-none tracking-wide">
+                {/* Both forms render and the breakpoint picks one, rather than measuring in
+                    JavaScript: a measured switch flickers on first paint and server renders
+                    wrong. Same approach as the day cells. */}
+                <span className="sm:hidden">{locationBadge.compactText ?? locationBadge.text}</span>
+                <span className="hidden sm:inline">{locationBadge.text}</span>
+              </span>
+            ) : null}
           </div>
           {bookingFull && <p className="text-sm">{t("booking_full")}</p>}
           {hasTimeSlots && !bookingFull && (
@@ -262,6 +279,8 @@ export const AvailableTimes = ({
   ...props
 }: AvailableTimesProps) => {
   const { t } = useLocale();
+  // Resolved here rather than inside SlotItem so one query serves the whole list.
+  const getSlotLocationBadge = useSlotLocationBadges();
 
   const oooAllDay = slots.every((slot) => slot.away);
   if (oooAllDay) {
@@ -288,7 +307,14 @@ export const AvailableTimes = ({
         {oooBeforeSlots && !oooAfterSlots && <OOOSlot {...slots[0]} />}
         {slots.map((slot) => {
           if (slot.away) return null;
-          return <SlotItem key={slot.time} slot={slot} {...props} />;
+          return (
+            <SlotItem
+              key={slot.time}
+              {...props}
+              slot={slot}
+              locationBadge={getSlotLocationBadge(slot.time)}
+            />
+          );
         })}
         {oooAfterSlots && !oooBeforeSlots && <OOOSlot {...slots[slots.length - 1]} className="pb-0" />}
       </div>
